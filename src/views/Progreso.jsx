@@ -38,15 +38,16 @@ export default function Progreso({ session }) {
   const [weights, setWeights] = useState([])
   const [trainedDays, setTrainedDays] = useState(0)
   const [avgProtein, setAvgProtein] = useState(0)
-  const [creatineStreak, setCreatineStreak] = useState(null)
+  const [cardio, setCardio] = useState({ n: 0, min: 0, kcal: 0 })
   const [err, setErr] = useState('')
 
   async function load() {
     const since = daysAgo(30)
-    const [{ data: w }, { data: wk }, { data: f }] = await Promise.all([
+    const [{ data: w }, { data: wk }, { data: f }, { data: ac }] = await Promise.all([
       supabase.from('weight_logs').select('*').gte('day', since).order('day'),
       supabase.from('exercise_logs').select('day').gte('day', daysAgo(7)),
-      supabase.from('food_logs').select('day, protein_g').gte('day', daysAgo(7))
+      supabase.from('food_logs').select('day, protein_g').gte('day', daysAgo(7)),
+      supabase.from('activities').select('duration_min, calories_est').gte('day', daysAgo(7))
     ])
     setWeights(w || [])
     setTrainedDays(new Set((wk || []).map((x) => x.day)).size)
@@ -56,6 +57,12 @@ export default function Progreso({ session }) {
     ;(f || []).forEach((r) => { byDay[r.day] = (byDay[r.day] || 0) + (+r.protein_g || 0) })
     const vals = Object.values(byDay)
     setAvgProtein(vals.length ? Math.round(vals.reduce((a, b) => a + b, 0) / vals.length) : 0)
+
+    setCardio({
+      n: (ac || []).length,
+      min: (ac || []).reduce((s, a) => s + (+a.duration_min || 0), 0),
+      kcal: Math.round((ac || []).reduce((s, a) => s + (+a.calories_est || 0), 0))
+    })
   }
   useEffect(() => { load() }, [])
 
@@ -82,6 +89,9 @@ export default function Progreso({ session }) {
           <div className="stat"><div className="n protein">{avgProtein}g</div><div className="l">Prot. prom/día</div></div>
           <div className="stat"><div className="n">{lastW ?? '—'}</div><div className="l">Peso actual</div></div>
         </div>
+        <p className="muted" style={{ marginTop: 10 }}>
+          🏃 Cardio: {cardio.n} sesiones · {cardio.min} min · ~{cardio.kcal} kcal quemadas
+        </p>
       </div>
 
       <div className="card">

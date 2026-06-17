@@ -115,9 +115,10 @@ async function trainingBalance(supabase: any) {
 // Resumen de nutrición + peso reciente
 async function nutritionWeightContext(supabase: any) {
   const since = daysAgoAR(7)
-  const [{ data: foods }, { data: weights }] = await Promise.all([
+  const [{ data: foods }, { data: weights }, { data: acts }] = await Promise.all([
     supabase.from('food_logs').select('day, protein_g').gte('day', since),
-    supabase.from('weight_logs').select('day, weight_kg').order('day', { ascending: false }).limit(8)
+    supabase.from('weight_logs').select('day, weight_kg').order('day', { ascending: false }).limit(8),
+    supabase.from('activities').select('type, duration_min, calories_est').gte('day', since)
   ])
   const byDay: Record<string, number> = {}
   for (const f of foods || []) byDay[f.day] = (byDay[f.day] || 0) + (+f.protein_g || 0)
@@ -127,7 +128,12 @@ async function nutritionWeightContext(supabase: any) {
   const peso = w.length
     ? `peso actual ${w[0].weight_kg} kg${w.length > 1 ? ` (hace unos días ${w[w.length - 1].weight_kg} kg)` : ''}`
     : 'sin registros de peso'
-  return `Proteína promedio últimos 7 días: ${avgP} g/día (días con registro). Peso: ${peso}.`
+  const aMin = (acts || []).reduce((s, a) => s + (+a.duration_min || 0), 0)
+  const aKcal = Math.round((acts || []).reduce((s, a) => s + (+a.calories_est || 0), 0))
+  const cardio = (acts || []).length
+    ? `Cardio/deporte últimos 7 días: ${(acts || []).length} sesiones, ${aMin} min, ~${aKcal} kcal quemadas.`
+    : 'Sin cardio/deporte registrado en los últimos 7 días.'
+  return `Proteína promedio últimos 7 días: ${avgP} g/día (días con registro). Peso: ${peso}.\n${cardio}`
 }
 
 Deno.serve(async (req) => {
@@ -179,22 +185,29 @@ Deno.serve(async (req) => {
         .from('food_logs').select('*').eq('day', day).order('logged_at')
       const { data: logs } = await supabase
         .from('exercise_logs').select('exercise_name').eq('day', day)
+      const { data: acts } = await supabase
+        .from('activities').select('type, duration_min, intensity, calories_est').eq('day', day)
       const entreno = logs && logs.length
         ? `Sí (ejercicios registrados: ${logs.map((l) => l.exercise_name).join(', ')}).`
-        : 'No entrenó (o no registró) hoy.'
+        : 'No registró gym hoy.'
+      const burned = (acts || []).reduce((s, a) => s + (+a.calories_est || 0), 0)
+      const actLista = (acts || []).map((a) =>
+        `- ${a.type} ${a.duration_min} min (${a.intensity}, ~${Math.round(a.calories_est || 0)} kcal)`)
+        .join('\n') || '(nada)'
       const totalP = (foods || []).reduce((s, f) => s + (+f.protein_g || 0), 0)
       const totalC = (foods || []).reduce((s, f) => s + (+f.calories || 0), 0)
       const lista = (foods || []).map((f) =>
         `- ${f.raw_text} (${Math.round(f.calories || 0)} kcal, ${Math.round(f.protein_g || 0)}g prot)`)
         .join('\n') || '(nada registrado)'
       const out = await callAI({
-        max_tokens: 700,
+        max_tokens: 750,
         system: 'Sos entrenador personal y nutricionista, cercano y directo (español rioplatense). ' +
           'Consejos breves y accionables. Recomendás gramos de proteína diaria según peso y si entrenó. ' +
-          'Pocos párrafos o bullets, sin tablas largas.',
-        user: `Perfil:\n${perfil}\n\n¿Entrenó hoy? ${entreno}\n\nComida de hoy (${day}):\n${lista}\n\n` +
-          `Totales: ${Math.round(totalC)} kcal, ${Math.round(totalP)} g proteína.\n\n` +
-          `Decime cómo voy: si me falta proteína (cuánta apuntar hoy según mi peso y si entrené) y un consejo concreto.`
+          'Tené en cuenta el cardio/deporte y las calorías quemadas. Pocos párrafos o bullets, sin tablas largas.',
+        user: `Perfil:\n${perfil}\n\n¿Entrenó gym hoy? ${entreno}\n` +
+          `Cardio/deporte de hoy:\n${actLista}\nCalorías quemadas aprox: ${Math.round(burned)}.\n\n` +
+          `Comida de hoy (${day}):\n${lista}\n\nTotales comida: ${Math.round(totalC)} kcal, ${Math.round(totalP)} g proteína.\n\n` +
+          `Decime cómo voy: si me falta proteína (cuánta apuntar hoy según mi peso, si entrené y lo que quemé) y un consejo concreto.`
       })
       return json({ result: out, totals: { calories: Math.round(totalC), protein_g: Math.round(totalP) } })
     }
