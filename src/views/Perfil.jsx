@@ -19,7 +19,7 @@ export default function Perfil({ session }) {
     setP(data || {
       id: uid, height_cm: 190, weight_kg: 87, creatine_g: 5,
       goal: 'crecimiento muscular equilibrado', activity: 'entreno 4-5 dias por semana',
-      equipment: [], training_goal: 'equilibrio', notes: ''
+      equipment: [], training_goal: 'equilibrio', body_composition: '', notes: ''
     })
   }
   useEffect(() => { load() }, [])
@@ -36,7 +36,7 @@ export default function Perfil({ session }) {
       id: uid, height_cm: p.height_cm, weight_kg: p.weight_kg, creatine_g: p.creatine_g,
       goal: p.goal, activity: p.activity, equipment: p.equipment || [],
       training_goal: p.training_goal || 'equilibrio',
-      notes: p.notes, updated_at: new Date().toISOString()
+      body_composition: p.body_composition, notes: p.notes, updated_at: new Date().toISOString()
     })
     if (error) { setErr(error.message); return }
     setSaved(true)
@@ -75,6 +75,9 @@ export default function Perfil({ session }) {
         <input value={p.goal ?? ''} onChange={(e) => set('goal', e.target.value)} />
         <label>Actividad / frecuencia</label>
         <input value={p.activity ?? ''} onChange={(e) => set('activity', e.target.value)} />
+        <label>Composición / complexión</label>
+        <textarea placeholder="Ej: flaco con grasa en torso, pecho y cara; quiero ganar músculo en piernas y glúteos"
+          value={p.body_composition ?? ''} onChange={(e) => set('body_composition', e.target.value)} />
         <label>Notas (lesiones, preferencias, etc.)</label>
         <textarea value={p.notes ?? ''} onChange={(e) => set('notes', e.target.value)} />
         <button className="full" style={{ marginTop: 12 }} onClick={save}>

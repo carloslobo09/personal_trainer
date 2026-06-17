@@ -20,6 +20,7 @@ create table if not exists public.profiles (
 -- por si la tabla ya existía sin estas columnas:
 alter table public.profiles add column if not exists equipment text[] default '{}';
 alter table public.profiles add column if not exists training_goal text default 'equilibrio';  -- definir | equilibrio | musculo
+alter table public.profiles add column if not exists body_composition text;  -- complexión / dónde acumula grasa / dónde quiere crecer
 
 -- 2) COMIDAS (un registro por cosa que comés)
 create table if not exists public.food_logs (

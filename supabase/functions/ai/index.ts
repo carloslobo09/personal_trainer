@@ -64,7 +64,9 @@ function profileBlock(p: any) {
   return [
     `Altura: ${p.height_cm ?? '?'} cm`, `Peso: ${p.weight_kg ?? '?'} kg`,
     `Creatina diaria: ${p.creatine_g ?? 0} g`, `Objetivo: ${p.goal ?? '-'}`,
-    `Actividad: ${p.activity ?? '-'}`, p.notes ? `Notas: ${p.notes}` : ''
+    `Actividad: ${p.activity ?? '-'}`,
+    p.body_composition ? `Composición/complexión: ${p.body_composition}` : '',
+    p.notes ? `Notas: ${p.notes}` : ''
   ].filter(Boolean).join('\n')
 }
 
@@ -244,13 +246,15 @@ Deno.serve(async (req) => {
       const out = await callAI({
         max_tokens: 2000, schema,
         system: 'Sos entrenador experto en hipertrofia. Armás un combo para crecimiento EQUILIBRADO de ' +
-          'TODO el cuerpo: priorizás músculos más abandonados y evitás los trabajados hace 1-2 días. ' +
-          'Elegís entre 4 y 6 ejercicios SOLO de la lista de candidatos, usando su id EXACTO (no inventes ' +
-          'ids). El rango de reps respeta el objetivo. Traducís nombre y técnica al español rioplatense.',
+          'TODO el cuerpo, pero si el usuario pide ÉNFASIS en ciertos músculos, priorizás ejercicios para ' +
+          'esos músculos (más volumen) sin descuidar lo demás. Tené en cuenta su composición corporal y ' +
+          'objetivo. Considerás qué trabajó recientemente. Elegís entre 4 y 6 ejercicios SOLO de la lista ' +
+          'de candidatos, usando su id EXACTO (no inventes ids). El rango de reps respeta el objetivo. ' +
+          'Traducís nombre y técnica al español rioplatense.',
         user: `Perfil:\n${perfil}\n\nEnfoque pedido: ${focus}\n${goalGuide(goal)}\n` +
-          `Cómo se siente hoy: "${felt || 'normal'}"\n\n${balance}\n\n` +
+          `Énfasis / preferencias del usuario para este combo: "${felt || 'ninguna'}"\n\n${balance}\n\n` +
           `Candidatos (id | nombre | músculo | equipo):\n${cands}\n\n` +
-          `Armá el combo de hoy teniendo en cuenta el balance del cuerpo.`
+          `Armá el combo priorizando el énfasis pedido y respetando el balance del cuerpo.`
       })
       let parsed; try { parsed = JSON.parse(out) } catch { parsed = null }
       return json({ result: parsed, raw: out })

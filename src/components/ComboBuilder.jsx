@@ -144,9 +144,10 @@ export default function ComboBuilder({ session, equipment, defaultGoal = 'equili
         </div>
         <p className="muted">{GOALS[goal].desc} (~{GOALS[goal].reps} reps)</p>
 
-        <label style={{ marginTop: 14 }}>¿Cómo te sentís hoy? (opcional)</label>
-        <input placeholder="Ej: con energía, hombro un poco cargado"
+        <label style={{ marginTop: 14 }}>Énfasis / detalles (opcional)</label>
+        <input placeholder="Ej: sobre todo glúteos y pantorrillas; o: hombro cargado, evitá press"
           value={felt} onChange={(e) => setFelt(e.target.value)} />
+        <p className="muted">Acá podés pedir en qué músculos enfocarte o cómo te sentís hoy.</p>
 
         <button className="full" style={{ marginTop: 14 }} onClick={generate} disabled={busy}>
           {busy ? <span className="spinner" /> : '🤖 Que la IA arme el combo'}
