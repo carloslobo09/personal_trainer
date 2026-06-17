@@ -1,12 +1,11 @@
 import { useState } from 'react'
 import { supabase } from '../lib/supabase'
 import { ai, today } from '../lib/api'
-import { candidatesFor, getById, imageUrl, FOCUS_GROUPS, musclesEs } from '../lib/catalog'
+import { candidatesFor, getById, imageUrl, musclesEs } from '../lib/catalog'
+import { SPLITS, SPLIT_KEYS } from '../lib/splits'
 import { GOALS, GOAL_KEYS, goalReps } from '../lib/goals'
 import ExerciseImage from './ExerciseImage'
 import CatalogPicker from './CatalogPicker'
-
-const FOCUS_OPTIONS = ['Empuje', 'Tirón', 'Pierna', 'Core']
 
 let _k = 0
 const newKey = () => `it_${++_k}`
@@ -30,38 +29,70 @@ function fromCatalog(ej, goalKey) {
 export default function ComboBuilder({ session, equipment, defaultGoal = 'equilibrio', onSaved, onCancel }) {
   const uid = session.user.id
   const [step, setStep] = useState('config')   // 'config' | 'review'
-  const [focus, setFocus] = useState(null)      // null = que decida la IA / cuerpo completo
+  const [split, setSplit] = useState(null)      // clave de SPLITS, o null = "que decida la IA"
+  const [dayIdx, setDayIdx] = useState(null)
   const [goal, setGoal] = useState(defaultGoal)
   const [felt, setFelt] = useState('')
+  const [splitTip, setSplitTip] = useState('')
+  const [tipBusy, setTipBusy] = useState(false)
   const [busy, setBusy] = useState(false)
   const [err, setErr] = useState('')
 
   const [name, setName] = useState('')
   const [items, setItems] = useState([])
+  const [curMuscles, setCurMuscles] = useState(null)
+  const [curFocus, setCurFocus] = useState(null)
   const [showPicker, setShowPicker] = useState(false)
   const [swapping, setSwapping] = useState(null)
+
+  const days = split ? SPLITS[split].days : []
+  const canGo = !split || dayIdx != null
+
+  function pickSplit(key) {
+    setSplit(key)
+    setDayIdx(key && SPLITS[key].days.length === 1 ? 0 : null)
+    setSplitTip('')
+  }
+
+  async function recommendSplit() {
+    setTipBusy(true); setErr('')
+    try {
+      const { result } = await ai('recommend_split')
+      setSplitTip(result || '')
+    } catch (e) { setErr(e.message) } finally { setTipBusy(false) }
+  }
+
+  function selectedDay() {
+    return (split && dayIdx != null) ? SPLITS[split].days[dayIdx] : null
+  }
 
   async function generate() {
     setBusy(true); setErr('')
     try {
-      const candidates = await candidatesFor({ focus, equipment })
+      const d = selectedDay()
+      const muscles = d ? d.muscles : null
+      const focusLabel = d ? d.name : 'que decidas vos (cuerpo completo equilibrado)'
+      const candidates = await candidatesFor({ muscles, equipment })
       if (candidates.length === 0) {
         setErr('No hay ejercicios para tu equipo. Cargá tu equipo en Perfil.')
         setBusy(false); return
       }
       const { result } = await ai('build_combo', {
-        focus_label: focus || 'que decidas vos (cuerpo completo equilibrado)',
-        goal, felt: felt.trim(), candidates
+        focus_label: focusLabel, goal, felt: felt.trim(), candidates
       })
       if (!result?.ejercicios?.length) throw new Error('La IA no devolvió ejercicios')
-      setName(result.titulo || (focus || 'Combo'))
+      setCurMuscles(muscles); setCurFocus(d ? d.name : (result.focus || null))
+      setName(result.titulo || (d ? d.name : 'Combo'))
       setItems(result.ejercicios.map((ej) => fromCatalog(ej, goal)))
       setStep('review')
     } catch (e) { setErr(e.message) } finally { setBusy(false) }
   }
 
   function startEmpty() {
-    setName(focus || 'Mi combo')
+    const d = selectedDay()
+    setCurMuscles(d ? d.muscles : null)
+    setCurFocus(d ? d.name : null)
+    setName(d ? d.name : 'Mi combo')
     setItems([])
     setStep('review')
   }
@@ -70,7 +101,8 @@ export default function ComboBuilder({ session, equipment, defaultGoal = 'equili
     setSwapping(item.key); setErr('')
     try {
       const muscle = item.primary_muscles?.[0] || null
-      const candidates = await candidatesFor({ focus, equipment })
+      const swapMuscles = curMuscles || item.primary_muscles || null
+      const candidates = await candidatesFor({ muscles: swapMuscles, equipment })
       const exclude = items.map((i) => i.catalog_id).filter(Boolean)
       const { result } = await ai('swap_exercise', { muscle, goal, candidates, exclude })
       if (!result?.id) throw new Error('No se encontró reemplazo')
@@ -92,7 +124,7 @@ export default function ComboBuilder({ session, equipment, defaultGoal = 'equili
     setBusy(true); setErr('')
     try {
       const { data: r, error: e1 } = await supabase.from('routines')
-        .insert({ user_id: uid, name: name.trim(), focus: focus || null, goal }).select().single()
+        .insert({ user_id: uid, name: name.trim(), focus: curFocus || null, goal }).select().single()
       if (e1) throw e1
 
       const rows = items.map((it, i) => ({
@@ -124,16 +156,33 @@ export default function ComboBuilder({ session, equipment, defaultGoal = 'equili
           <button className="x" onClick={onCancel}>✕</button>
         </div>
 
-        <label>¿Qué querés trabajar?</label>
+        <label>Método de entrenamiento</label>
         <div className="chips">
-          {FOCUS_OPTIONS.map((f) => (
-            <button key={f} className={`chip ${focus === f ? 'on' : ''}`}
-              onClick={() => setFocus(f)}>{f}</button>
+          {SPLIT_KEYS.map((k) => (
+            <button key={k} className={`chip ${split === k ? 'on' : ''}`}
+              onClick={() => pickSplit(k)}>{SPLITS[k].label}</button>
           ))}
-          <button className={`chip ${focus === null ? 'on' : ''}`}
-            onClick={() => setFocus(null)}>Que decida la IA</button>
+          <button className={`chip ${split === null ? 'on' : ''}`}
+            onClick={() => pickSplit(null)}>Que decida la IA</button>
         </div>
-        {focus && <p className="muted">Músculos: {musclesEs(FOCUS_GROUPS[focus]).join(', ')}</p>}
+        {split && <p className="muted">{SPLITS[split].desc}</p>}
+        <button className="ghost full" style={{ marginTop: 8 }} onClick={recommendSplit} disabled={tipBusy}>
+          {tipBusy ? <span className="spinner" /> : '🤖 ¿Cuál me conviene?'}
+        </button>
+        {splitTip && <div className="advice" style={{ marginTop: 10 }}>{splitTip}</div>}
+
+        {split && days.length > 1 && (
+          <>
+            <label style={{ marginTop: 14 }}>¿Qué toca hoy?</label>
+            <div className="chips">
+              {days.map((d, i) => (
+                <button key={i} className={`chip ${dayIdx === i ? 'on' : ''}`}
+                  onClick={() => setDayIdx(i)}>{d.name}</button>
+              ))}
+            </div>
+          </>
+        )}
+        {split && days.length === 1 && <p className="muted">Día: {days[0].name}</p>}
 
         <label style={{ marginTop: 14 }}>Objetivo (define las reps)</label>
         <div className="chips">
@@ -149,12 +198,13 @@ export default function ComboBuilder({ session, equipment, defaultGoal = 'equili
           value={felt} onChange={(e) => setFelt(e.target.value)} />
         <p className="muted">Acá podés pedir en qué músculos enfocarte o cómo te sentís hoy.</p>
 
-        <button className="full" style={{ marginTop: 14 }} onClick={generate} disabled={busy}>
+        <button className="full" style={{ marginTop: 14 }} onClick={generate} disabled={busy || !canGo}>
           {busy ? <span className="spinner" /> : '🤖 Que la IA arme el combo'}
         </button>
-        <button className="ghost full" style={{ marginTop: 10 }} onClick={startEmpty} disabled={busy}>
+        <button className="ghost full" style={{ marginTop: 10 }} onClick={startEmpty} disabled={!canGo}>
           Armarlo a mano
         </button>
+        {!canGo && <p className="muted center">Elegí qué toca hoy.</p>}
         {err && <p className="muted" style={{ color: 'var(--danger)' }}>{err}</p>}
       </div>
     )

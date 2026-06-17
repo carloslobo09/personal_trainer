@@ -314,6 +314,22 @@ Deno.serve(async (req) => {
       return json({ result: parsed, raw: out })
     }
 
+    // ---------------- TUTOR: recomendar split de entrenamiento ----------------
+    if (action === 'recommend_split') {
+      const balance = await trainingBalance(supabase)
+      const out = await callAI({
+        max_tokens: 800,
+        system: 'Sos entrenador y tutor. Explicás de forma breve y clara (español rioplatense) los ' +
+          'métodos de entrenamiento y recomendás UNO según el perfil. Sé educativo pero conciso: ' +
+          'bullets cortos, sin tablas largas.',
+        user: `Perfil:\n${perfil}\n\n${balance}\n\n` +
+          `Explicame en 1 frase cada método: Full Body, Upper/Lower, Push/Pull/Legs (PPL) y Arnold Split. ` +
+          `Después recomendame EL que mejor me va según mi frecuencia de entrenamiento, mi objetivo y mi ` +
+          `complexión, y explicá por qué en 2-3 frases.`
+      })
+      return json({ result: out })
+    }
+
     // ---------------- Pregunta libre al coach ----------------
     if (action === 'ask') {
       const q = String(payload.question ?? '').slice(0, 1500)

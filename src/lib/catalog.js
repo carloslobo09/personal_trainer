@@ -78,12 +78,12 @@ function available(ex, equipment) {
 
 // Candidatos para mandarle a la IA: filtra por equipo y (opcional) enfoque.
 // Devuelve [{id,name,muscle,equipment}], diversificado por músculo.
-export async function candidatesFor({ focus = null, equipment = [], cap = 120 }) {
+export async function candidatesFor({ focus = null, muscles = null, equipment = [], cap = 120 }) {
   const cat = await loadCatalog()
-  const muscles = focus ? FOCUS_GROUPS[focus] : null
+  const targetMuscles = muscles || (focus ? FOCUS_GROUPS[focus] : null)
   const filtered = cat.filter((ex) => {
     if (!available(ex, equipment)) return false
-    if (muscles) return (ex.primaryMuscles || ex.primary || []).some((m) => muscles.includes(m))
+    if (targetMuscles) return (ex.primaryMuscles || ex.primary || []).some((m) => targetMuscles.includes(m))
     return true
   })
   // Diversificar: agrupar por músculo primario y tomar de a poco
@@ -92,7 +92,7 @@ export async function candidatesFor({ focus = null, equipment = [], cap = 120 })
     const m = (ex.primaryMuscles || ex.primary || [])[0] || 'otro'
     ;(byMuscle[m] = byMuscle[m] || []).push(ex)
   }
-  const perMuscle = focus ? 12 : 8
+  const perMuscle = targetMuscles ? 12 : 8
   const out = []
   for (const m of Object.keys(byMuscle)) {
     for (const ex of byMuscle[m].slice(0, perMuscle)) {
