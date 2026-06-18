@@ -32,6 +32,14 @@ function Sparkline({ points }) {
   )
 }
 
+const MEAS_FIELDS = [
+  { k: 'waist_cm', label: 'Cintura', goodDown: true },
+  { k: 'chest_cm', label: 'Pecho', goodDown: false },
+  { k: 'arm_cm', label: 'Brazo', goodDown: false },
+  { k: 'thigh_cm', label: 'Pierna', goodDown: false },
+  { k: 'hip_cm', label: 'Cadera', goodDown: true }
+]
+
 export default function Progreso({ session, onWeighIn }) {
   const uid = session.user.id
   const [weight, setWeight] = useState('')
@@ -41,6 +49,9 @@ export default function Progreso({ session, onWeighIn }) {
   const [cardio, setCardio] = useState({ n: 0, min: 0, kcal: 0 })
   const [status, setStatus] = useState('')
   const [statusBusy, setStatusBusy] = useState(false)
+  const [meas, setMeas] = useState({})
+  const [measHist, setMeasHist] = useState([])
+  const [measSaved, setMeasSaved] = useState(false)
   const [err, setErr] = useState('')
 
   async function fetchStatus() {
@@ -51,11 +62,12 @@ export default function Progreso({ session, onWeighIn }) {
 
   async function load() {
     const since = daysAgo(30)
-    const [{ data: w }, { data: wk }, { data: f }, { data: ac }] = await Promise.all([
+    const [{ data: w }, { data: wk }, { data: f }, { data: ac }, { data: m }] = await Promise.all([
       supabase.from('weight_logs').select('*').gte('day', since).order('day'),
       supabase.from('exercise_logs').select('day').gte('day', daysAgo(7)),
       supabase.from('food_logs').select('day, protein_g').gte('day', daysAgo(7)),
-      supabase.from('activities').select('duration_min, calories_est').gte('day', daysAgo(7))
+      supabase.from('activities').select('duration_min, calories_est').gte('day', daysAgo(7)),
+      supabase.from('measurements').select('*').order('day')
     ])
     setWeights(w || [])
     setTrainedDays(new Set((wk || []).map((x) => x.day)).size)
@@ -71,6 +83,32 @@ export default function Progreso({ session, onWeighIn }) {
       min: (ac || []).reduce((s, a) => s + (+a.duration_min || 0), 0),
       kcal: Math.round((ac || []).reduce((s, a) => s + (+a.calories_est || 0), 0))
     })
+
+    setMeasHist(m || [])
+    const latest = (m || [])[(m || []).length - 1]
+    if (latest) {
+      const pre = {}
+      MEAS_FIELDS.forEach(({ k }) => { if (latest[k] != null) pre[k] = String(latest[k]) })
+      setMeas(pre)
+    }
+  }
+
+  async function saveMeas() {
+    setErr(''); setMeasSaved(false)
+    const row = { user_id: uid, day: today() }
+    MEAS_FIELDS.forEach(({ k }) => { row[k] = meas[k] !== '' && meas[k] != null ? parseFloat(meas[k]) : null })
+    const { error } = await supabase.from('measurements').upsert(row, { onConflict: 'user_id,day' })
+    if (error) { setErr(error.message); return }
+    setMeasSaved(true); load()
+  }
+
+  // por campo: valor más reciente y cambio vs el primer registro
+  function measInfo(k) {
+    const vals = measHist.filter((x) => x[k] != null)
+    if (!vals.length) return null
+    const last = +vals[vals.length - 1][k]
+    const first = +vals[0][k]
+    return { last, delta: vals.length > 1 ? +(last - first).toFixed(1) : null }
   }
   useEffect(() => { load() }, [])
 
@@ -132,6 +170,46 @@ export default function Progreso({ session, onWeighIn }) {
             </p>
           )}
         </div>
+      </div>
+
+      <div className="card">
+        <h2>Medidas (cm)</h2>
+        <p className="muted">
+          Clave para la recomposición: la <b>cintura baja</b> = perdés grasa; <b>brazo/pecho/pierna suben</b> = ganás músculo.
+        </p>
+        <div className="row" style={{ flexWrap: 'wrap' }}>
+          {MEAS_FIELDS.map(({ k, label }) => (
+            <div key={k} style={{ flex: '1 1 45%' }}>
+              <label>{label}</label>
+              <input type="number" inputMode="decimal" placeholder="—"
+                value={meas[k] ?? ''}
+                onChange={(e) => { setMeas({ ...meas, [k]: e.target.value }); setMeasSaved(false) }} />
+            </div>
+          ))}
+        </div>
+        <button className="full" style={{ marginTop: 12 }} onClick={saveMeas}>
+          {measSaved ? '✓ Guardado' : '💾 Guardar medidas de hoy'}
+        </button>
+        {measHist.length > 0 && (
+          <div className="progress-row" style={{ gridTemplateColumns: 'repeat(2,1fr)' }}>
+            {MEAS_FIELDS.map(({ k, label, goodDown }) => {
+              const info = measInfo(k)
+              if (!info) return null
+              const good = info.delta == null ? null : (goodDown ? info.delta < 0 : info.delta > 0)
+              return (
+                <div key={k}>
+                  <span className="muted">{label}</span><br />
+                  {info.last} cm
+                  {info.delta != null && info.delta !== 0 && (
+                    <span style={{ marginLeft: 6, color: good ? 'var(--good)' : 'var(--danger)' }}>
+                      {info.delta > 0 ? '+' : ''}{info.delta}
+                    </span>
+                  )}
+                </div>
+              )
+            })}
+          </div>
+        )}
       </div>
 
       <div className="card">

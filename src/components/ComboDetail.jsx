@@ -6,6 +6,19 @@ import { GOALS } from '../lib/goals'
 import ExerciseImage from './ExerciseImage'
 import CatalogPicker from './CatalogPicker'
 
+// Sugerencia de sobrecarga: si venís ≥3 registros con el mismo peso, proponé subir.
+function overloadHint(logs) {
+  if (!logs || logs.length < 3) return null
+  const latest = +logs[logs.length - 1].weight_kg
+  let count = 0
+  for (let i = logs.length - 1; i >= 0; i--) {
+    if (+logs[i].weight_kg === latest) count++; else break
+  }
+  if (count < 3) return null
+  const inc = Math.max(2.5, Math.round((latest * 0.05) / 2.5) * 2.5)
+  return { count, latest, next: +(latest + inc).toFixed(1) }
+}
+
 export default function ComboDetail({ session, routineId, equipment, onBack, onDeleted }) {
   const uid = session.user.id
   const [routine, setRoutine] = useState(null)
@@ -112,6 +125,7 @@ export default function ComboDetail({ session, routineId, equipment, onBack, onD
         const logs = logsByEx[rex.id] || []
         const latest = logs.length ? logs[logs.length - 1].weight_kg : rex.start_weight_kg
         const delta = (latest - rex.start_weight_kg)
+        const hint = overloadHint(logs)
         const d = draft[rex.id] || {}
         return (
           <div className="card exercise-card" key={rex.id}>
@@ -134,6 +148,12 @@ export default function ComboDetail({ session, routineId, equipment, onBack, onD
                 {delta > 0 ? '▲ +' : delta < 0 ? '▼ ' : '= '}{delta !== 0 ? Math.abs(delta) + ' kg' : ''}
               </div>
             </div>
+
+            {hint && (
+              <div className="overload">
+                💡 Llevás {hint.count} sesiones en {hint.latest} kg — toca subir: probá <b>{hint.next} kg</b>
+              </div>
+            )}
 
             <div className="row" style={{ marginTop: 10, alignItems: 'flex-end' }}>
               <div style={{ flex: 2 }}>

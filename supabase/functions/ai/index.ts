@@ -355,13 +355,25 @@ Deno.serve(async (req) => {
       const { data: ws } = await supabase.from('weight_logs')
         .select('day, weight_kg').order('day', { ascending: false }).limit(12)
       const hist = (ws || []).map((w) => `${w.day}: ${w.weight_kg} kg`).join('\n') || 'sin registros'
+      const { data: ms } = await supabase.from('measurements').select('*').order('day', { ascending: true })
+      const fields = [['waist_cm', 'Cintura'], ['chest_cm', 'Pecho'], ['arm_cm', 'Brazo'], ['thigh_cm', 'Pierna'], ['hip_cm', 'Cadera']]
+      const measLine = fields.map(([f, label]) => {
+        const vals = (ms || []).filter((m) => m[f] != null)
+        if (!vals.length) return null
+        const last = vals[vals.length - 1][f], first = vals[0][f]
+        const d = (last - first).toFixed(1)
+        return `${label}: ${last} cm${vals.length > 1 ? ` (${d >= 0 ? '+' : ''}${d} desde inicio)` : ''}`
+      }).filter(Boolean).join(' | ') || 'sin medidas registradas'
       const out = await callAI({
-        max_tokens: 450,
-        system: 'Sos entrenador. Evaluás la evolución del peso según el objetivo y la composición del ' +
-          'usuario. Breve, honesto y motivador (español rioplatense). Recordá que en recomposición la ' +
-          'balanza puede no moverse aunque haya progreso (músculo + menos grasa). 2-4 frases, sin tablas.',
+        max_tokens: 500,
+        system: 'Sos entrenador. Evaluás la evolución del usuario según su objetivo y composición. Breve, ' +
+          'honesto y motivador (español rioplatense). En recomposición la balanza puede no moverse aunque ' +
+          'haya progreso: si la CINTURA baja y el peso se mantiene (o suben brazo/pecho/pierna), está ' +
+          'ganando músculo y perdiendo grasa = va bien. Priorizá las medidas sobre el número de la balanza. ' +
+          '2-4 frases, sin tablas.',
         user: `Perfil:\n${perfil}\n\nHistorial de peso (más reciente primero):\n${hist}\n\n` +
-          `Decime cómo voy: la tendencia, si está alineado con mi objetivo, y un consejo corto.`
+          `Medidas corporales:\n${measLine}\n\n` +
+          `Decime cómo voy: tendencia de peso y medidas, si está alineado con mi objetivo, y un consejo corto.`
       })
       return json({ result: out })
     }

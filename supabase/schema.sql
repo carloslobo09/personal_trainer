@@ -139,6 +139,21 @@ create table if not exists public.supplement_logs (
 );
 create unique index if not exists supplement_logs_unique on public.supplement_logs(user_id, supplement_id, day);
 
+-- 10) MEDIDAS corporales (cm) — para ver recomposición (cintura, brazo, etc.)
+create table if not exists public.measurements (
+  id         bigint generated always as identity primary key,
+  user_id    uuid not null references auth.users(id) on delete cascade,
+  day        date not null default current_date,
+  logged_at  timestamptz not null default now(),
+  waist_cm   numeric,   -- cintura
+  chest_cm   numeric,   -- pecho
+  arm_cm     numeric,   -- brazo
+  thigh_cm   numeric,   -- pierna/muslo
+  hip_cm     numeric,   -- cadera
+  notes      text
+);
+create unique index if not exists measurements_user_day on public.measurements(user_id, day);
+
 -- ============================================================
 --  Seguridad por fila (RLS): cada usuario solo ve lo suyo
 -- ============================================================
@@ -151,11 +166,12 @@ alter table public.weight_logs       enable row level security;
 alter table public.activities        enable row level security;
 alter table public.supplements       enable row level security;
 alter table public.supplement_logs   enable row level security;
+alter table public.measurements      enable row level security;
 
 do $$
 declare t text;
 begin
-  foreach t in array array['profiles','food_logs','routines','routine_exercises','exercise_logs','weight_logs','activities','supplements','supplement_logs'] loop
+  foreach t in array array['profiles','food_logs','routines','routine_exercises','exercise_logs','weight_logs','activities','supplements','supplement_logs','measurements'] loop
     execute format('drop policy if exists "own_select_%1$s" on public.%1$s', t);
     execute format('drop policy if exists "own_insert_%1$s" on public.%1$s', t);
     execute format('drop policy if exists "own_update_%1$s" on public.%1$s', t);
@@ -171,7 +187,7 @@ create policy "own_update_profiles" on public.profiles for update using (auth.ui
 do $$
 declare t text;
 begin
-  foreach t in array array['food_logs','routines','routine_exercises','exercise_logs','weight_logs','activities','supplements','supplement_logs'] loop
+  foreach t in array array['food_logs','routines','routine_exercises','exercise_logs','weight_logs','activities','supplements','supplement_logs','measurements'] loop
     execute format('create policy "own_select_%1$s" on public.%1$s for select using (auth.uid() = user_id)', t);
     execute format('create policy "own_insert_%1$s" on public.%1$s for insert with check (auth.uid() = user_id)', t);
     execute format('create policy "own_update_%1$s" on public.%1$s for update using (auth.uid() = user_id)', t);
