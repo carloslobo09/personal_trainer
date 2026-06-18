@@ -1,5 +1,6 @@
 import { useEffect, useState } from 'react'
 import { supabase } from '../lib/supabase'
+import { ai } from '../lib/api'
 import { loadCatalog, musclesEs } from '../lib/catalog'
 import { SPLITS, SPLIT_KEYS } from '../lib/splits'
 import ComboBuilder from '../components/ComboBuilder'
@@ -15,8 +16,16 @@ export default function Rutina({ session }) {
   const [defaultGoal, setDefaultGoal] = useState('equilibrio')
   const [activeSplit, setActiveSplit] = useState(null)
   const [rotationIndex, setRotationIndex] = useState(0)
+  const [splitTip, setSplitTip] = useState('')
+  const [tipBusy, setTipBusy] = useState(false)
   const [counts, setCounts] = useState({})
   const [loading, setLoading] = useState(true)
+
+  async function recommendSplit() {
+    setTipBusy(true)
+    try { const { result } = await ai('recommend_split'); setSplitTip(result || '') }
+    catch (e) { setSplitTip('No se pudo: ' + e.message) } finally { setTipBusy(false) }
+  }
 
   async function load() {
     setLoading(true)
@@ -103,15 +112,23 @@ export default function Rutina({ session }) {
               Elegí tu método y la app te dice qué toca cada vez que entrenás. Es una <b>rotación flexible</b>:
               si un día no podés, no se rompe — seguís por donde ibas.
             </p>
-            <div className="chips">
-              {SPLIT_KEYS.map((k) => (
-                <button key={k} className="chip" onClick={() => setPlan(k)}>{SPLITS[k].label}</button>
-              ))}
-            </div>
+            {SPLIT_KEYS.map((k) => (
+              <div className="exercise" key={k}>
+                <div className="name">{SPLITS[k].label}</div>
+                <div className="muted" style={{ marginTop: 4 }}>{SPLITS[k].desc}</div>
+                <button className="full" style={{ marginTop: 8 }} onClick={() => setPlan(k)}>
+                  Elegir {SPLITS[k].label}
+                </button>
+              </div>
+            ))}
+            <button className="ghost full" style={{ marginTop: 4 }} onClick={recommendSplit} disabled={tipBusy}>
+              {tipBusy ? <span className="spinner" /> : '🤖 ¿Cuál me conviene?'}
+            </button>
+            {splitTip && <div className="advice" style={{ marginTop: 10 }}>{splitTip}</div>}
           </>
         ) : (
           <>
-            <p className="muted">{SPLITS[activeSplit].label}</p>
+            <p className="muted"><b>{SPLITS[activeSplit].label}</b> — {SPLITS[activeSplit].desc}</p>
             <div className="today-box">
               <div className="muted">Hoy toca</div>
               <div className="today-name">{curDay.name}</div>
