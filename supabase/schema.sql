@@ -22,6 +22,8 @@ alter table public.profiles add column if not exists equipment text[] default '{
 alter table public.profiles add column if not exists training_goal text default 'equilibrio';  -- definir | equilibrio | musculo
 alter table public.profiles add column if not exists body_composition text;  -- complexión / dónde acumula grasa / dónde quiere crecer
 alter table public.profiles add column if not exists nutrition_targets jsonb;  -- metas diarias personalizadas (proteína, fibra, calorías, agua, etc.)
+alter table public.profiles add column if not exists active_split text;          -- método de entrenamiento activo (full_body, ppl, etc.)
+alter table public.profiles add column if not exists rotation_index int not null default 0;  -- en qué día de la rotación va
 
 -- 2) COMIDAS (un registro por cosa que comés)
 create table if not exists public.food_logs (

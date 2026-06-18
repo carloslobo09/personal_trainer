@@ -26,11 +26,19 @@ function fromCatalog(ej, goalKey) {
   }
 }
 
-export default function ComboBuilder({ session, equipment, defaultGoal = 'equilibrio', onSaved, onCancel }) {
+export default function ComboBuilder({ session, equipment, defaultGoal = 'equilibrio', initialSplit = null, initialDayName = null, onSaved, onCancel }) {
   const uid = session.user.id
+  const initIdx = (() => {
+    if (!initialSplit) return null
+    if (initialDayName) {
+      const i = SPLITS[initialSplit].days.findIndex((d) => d.name === initialDayName)
+      if (i >= 0) return i
+    }
+    return SPLITS[initialSplit].days.length === 1 ? 0 : null
+  })()
   const [step, setStep] = useState('config')   // 'config' | 'review'
-  const [split, setSplit] = useState(null)      // clave de SPLITS, o null = "que decida la IA"
-  const [dayIdx, setDayIdx] = useState(null)
+  const [split, setSplit] = useState(initialSplit) // clave de SPLITS, o null = "que decida la IA"
+  const [dayIdx, setDayIdx] = useState(initIdx)
   const [goal, setGoal] = useState(defaultGoal)
   const [felt, setFelt] = useState('')
   const [splitTip, setSplitTip] = useState('')

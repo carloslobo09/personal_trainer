@@ -244,3 +244,7 @@ nav.tabs button.active { color: var(--accent); }
   background: none; color: var(--text); border: 1px solid var(--line);
   padding: 2px 12px; font-size: 22px; line-height: 1; flex: 0 0 auto; border-radius: 8px;
 }
+
+/* ---- Plan rotativo: hoy toca ---- */
+.today-box { background: var(--bg); border-left: 3px solid var(--accent); border-radius: 8px; padding: 12px; margin-top: 10px; }
+.today-name { font-size: 20px; font-weight: 700; color: var(--accent); margin: 2px 0; }
