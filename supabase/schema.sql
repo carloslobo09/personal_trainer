@@ -135,9 +135,11 @@ create table if not exists public.supplement_logs (
   user_id       uuid not null references auth.users(id) on delete cascade,
   supplement_id bigint not null references public.supplements(id) on delete cascade,
   day           date not null default current_date,
+  qty           int not null default 1,   -- cuántas tomó ese día
   created_at    timestamptz not null default now()
 );
 create unique index if not exists supplement_logs_unique on public.supplement_logs(user_id, supplement_id, day);
+alter table public.supplement_logs add column if not exists qty int not null default 1;
 
 -- 10) MEDIDAS corporales (cm) — para ver recomposición (cintura, brazo, etc.)
 create table if not exists public.measurements (

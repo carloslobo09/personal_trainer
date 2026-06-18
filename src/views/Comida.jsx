@@ -26,7 +26,7 @@ export default function Comida({ session }) {
   const [text, setText] = useState('')
   const [foods, setFoods] = useState([])
   const [sups, setSups] = useState([])
-  const [takenIds, setTakenIds] = useState(new Set())
+  const [qtyById, setQtyById] = useState({})
   const [targets, setTargets] = useState(null)
   const [infoId, setInfoId] = useState(null)
   const [busy, setBusy] = useState(false)
@@ -39,12 +39,12 @@ export default function Comida({ session }) {
     const [{ data: f }, { data: s }, { data: sl }, { data: prof }] = await Promise.all([
       supabase.from('food_logs').select('*').eq('day', day).order('logged_at'),
       supabase.from('supplements').select('*').order('position'),
-      supabase.from('supplement_logs').select('supplement_id').eq('day', day),
+      supabase.from('supplement_logs').select('supplement_id, qty').eq('day', day),
       supabase.from('profiles').select('nutrition_targets').eq('id', uid).single()
     ])
     setFoods(f || [])
     setSups(s || [])
-    setTakenIds(new Set((sl || []).map((x) => x.supplement_id)))
+    const q = {}; (sl || []).forEach((x) => { q[x.supplement_id] = x.qty }); setQtyById(q)
     setTargets(prof?.nutrition_targets || null)
   }
   useEffect(() => { load(); setAdvice('') }, [day])
@@ -71,12 +71,16 @@ export default function Comida({ session }) {
     load()
   }
 
-  async function toggleSup(s) {
-    if (takenIds.has(s.id)) {
-      await supabase.from('supplement_logs').delete().eq('supplement_id', s.id).eq('day', day)
-    } else {
-      await supabase.from('supplement_logs').insert({ user_id: uid, supplement_id: s.id, day })
-    }
+  async function incSup(s) {
+    const cur = qtyById[s.id] || 0
+    if (cur === 0) await supabase.from('supplement_logs').insert({ user_id: uid, supplement_id: s.id, day, qty: 1 })
+    else await supabase.from('supplement_logs').update({ qty: cur + 1 }).eq('supplement_id', s.id).eq('day', day)
+    load()
+  }
+  async function decSup(s) {
+    const cur = qtyById[s.id] || 0
+    if (cur <= 1) await supabase.from('supplement_logs').delete().eq('supplement_id', s.id).eq('day', day)
+    else await supabase.from('supplement_logs').update({ qty: cur - 1 }).eq('supplement_id', s.id).eq('day', day)
     load()
   }
 
@@ -194,18 +198,20 @@ export default function Comida({ session }) {
           <p className="muted">No configuraste suplementos. Cargalos en <b>Perfil → Suplementos</b>.</p>
         )}
         {sups.map((s) => {
-          const taken = takenIds.has(s.id)
+          const qty = qtyById[s.id] || 0
+          const done = s.pills_per_day ? qty >= s.pills_per_day : qty > 0
           return (
             <div key={s.id}>
-              <div className="sup-item">
-                <button className={`check ${taken ? 'on' : ''}`} onClick={() => toggleSup(s)}>
-                  {taken ? '✓' : ''}
-                </button>
-                <div style={{ flex: 1 }} onClick={() => setInfoId(infoId === s.id ? null : s.id)}>
-                  <div>{s.name}{s.pills_per_day ? <span className="series"> · {s.pills_per_day} pastilla(s)/día</span> : ''}</div>
+              <div className="sup-item" onClick={() => incSup(s)}>
+                <span className={`count-badge ${done ? 'on' : ''}`}>{qty}</span>
+                <div style={{ flex: 1 }}>
+                  <div>{s.name}
+                    <span className="series"> {qty}{s.pills_per_day ? `/${s.pills_per_day}` : ''} hoy</span>
+                  </div>
                   {s.dose && <div className="muted">{s.dose}</div>}
                 </div>
-                <button className="info" onClick={() => setInfoId(infoId === s.id ? null : s.id)}>ℹ️</button>
+                <button className="minus" onClick={(e) => { e.stopPropagation(); decSup(s) }}>−</button>
+                <button className="info" onClick={(e) => { e.stopPropagation(); setInfoId(infoId === s.id ? null : s.id) }}>ℹ️</button>
               </div>
               {infoId === s.id && (
                 <div className="advice" style={{ marginBottom: 8 }}>
@@ -215,7 +221,9 @@ export default function Comida({ session }) {
             </div>
           )
         })}
-        {sups.length > 0 && <p className="muted" style={{ marginTop: 4 }}>Tomados: {takenIds.size}/{sups.length}</p>}
+        {sups.length > 0 && (
+          <p className="muted" style={{ marginTop: 4 }}>Tocá el suplemento para sumar una; el botón − para restar.</p>
+        )}
       </div>
 
       <div className="card">

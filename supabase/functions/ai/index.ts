@@ -195,10 +195,11 @@ Deno.serve(async (req) => {
       const { data: acts } = await supabase
         .from('activities').select('type, duration_min, intensity, calories_est').eq('day', day)
       const { data: sups } = await supabase.from('supplements').select('id, name, dose, pills_per_day')
-      const { data: slogs } = await supabase.from('supplement_logs').select('supplement_id').eq('day', day)
-      const takenIds = new Set((slogs || []).map((s) => s.supplement_id))
+      const { data: slogs } = await supabase.from('supplement_logs').select('supplement_id, qty').eq('day', day)
+      const qtyById: Record<string, number> = {}
+      for (const s of slogs || []) qtyById[s.supplement_id] = s.qty
       const supLista = (sups || []).map((s) =>
-        `- ${s.name}${s.dose ? ` (${s.dose})` : ''}${s.pills_per_day ? `, recomendado ${s.pills_per_day} pastilla(s)/día` : ''}: ${takenIds.has(s.id) ? 'tomado' : 'NO tomado'}`)
+        `- ${s.name}${s.dose ? ` (${s.dose})` : ''}${s.pills_per_day ? `, recomendado ${s.pills_per_day}/día` : ''}: tomó ${qtyById[s.id] || 0} hoy`)
         .join('\n') || '(sin suplementos configurados)'
       const entreno = logs && logs.length
         ? `Sí (ejercicios registrados: ${logs.map((l) => l.exercise_name).join(', ')}).`

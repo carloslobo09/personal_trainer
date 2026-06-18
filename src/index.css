@@ -231,3 +231,16 @@ nav.tabs button.active { color: var(--accent); }
   margin-top: 10px; background: rgba(251,191,36,.12); border: 1px solid var(--warn);
   color: var(--warn); border-radius: 10px; padding: 10px; font-size: 13px; font-weight: 600;
 }
+
+/* ---- Contador de suplementos ---- */
+.sup-item { cursor: pointer; }
+.sup-item .count-badge {
+  width: 32px; height: 32px; flex: 0 0 auto; border-radius: 8px;
+  border: 2px solid var(--line); display: flex; align-items: center; justify-content: center;
+  font-weight: 800; font-size: 15px; color: var(--text);
+}
+.sup-item .count-badge.on { background: var(--good); border-color: var(--good); color: #06283d; }
+.sup-item .minus {
+  background: none; color: var(--text); border: 1px solid var(--line);
+  padding: 2px 12px; font-size: 22px; line-height: 1; flex: 0 0 auto; border-radius: 8px;
+}
