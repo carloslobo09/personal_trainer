@@ -1,6 +1,6 @@
 import { useEffect, useState } from 'react'
 import { supabase } from '../lib/supabase'
-import { today } from '../lib/api'
+import { ai, today, dateLabel } from '../lib/api'
 
 function daysAgo(n) {
   const d = new Date(); d.setDate(d.getDate() - n)
@@ -32,14 +32,22 @@ function Sparkline({ points }) {
   )
 }
 
-export default function Progreso({ session }) {
+export default function Progreso({ session, onWeighIn }) {
   const uid = session.user.id
   const [weight, setWeight] = useState('')
   const [weights, setWeights] = useState([])
   const [trainedDays, setTrainedDays] = useState(0)
   const [avgProtein, setAvgProtein] = useState(0)
   const [cardio, setCardio] = useState({ n: 0, min: 0, kcal: 0 })
+  const [status, setStatus] = useState('')
+  const [statusBusy, setStatusBusy] = useState(false)
   const [err, setErr] = useState('')
+
+  async function fetchStatus() {
+    setStatusBusy(true)
+    try { const { result } = await ai('weight_status'); setStatus(result || '') }
+    catch (e) { setErr(e.message) } finally { setStatusBusy(false) }
+  }
 
   async function load() {
     const since = daysAgo(30)
@@ -73,12 +81,23 @@ export default function Progreso({ session }) {
     const { error } = await supabase.from('weight_logs')
       .upsert({ user_id: uid, day: today(), weight_kg: v }, { onConflict: 'user_id,day' })
     if (error) { setErr(error.message); return }
-    setWeight(''); load()
+    setWeight(''); await load()
+    onWeighIn?.()        // limpia el banner de "toca pesarte"
+    fetchStatus()        // consejo de la IA sobre tu evolución
   }
 
   const lastW = weights.length ? weights[weights.length - 1].weight_kg : null
   const firstW = weights.length ? weights[0].weight_kg : null
   const diff = lastW != null && firstW != null ? (lastW - firstW).toFixed(1) : null
+
+  // historial (más reciente primero) con variación vs registro anterior
+  const history = weights.map((w, i) => ({
+    day: w.day, kg: +w.weight_kg,
+    delta: i > 0 ? +(w.weight_kg - weights[i - 1].weight_kg).toFixed(1) : null
+  })).reverse()
+
+  const weekVals = weights.filter((w) => w.day >= daysAgo(6)).map((w) => +w.weight_kg)
+  const weekAvg = weekVals.length ? (weekVals.reduce((a, b) => a + b, 0) / weekVals.length).toFixed(1) : null
 
   return (
     <>
@@ -101,7 +120,11 @@ export default function Progreso({ session }) {
             value={weight} onChange={(e) => setWeight(e.target.value)} />
           <button style={{ flex: '0 0 auto' }} onClick={addWeight}>Registrar hoy</button>
         </div>
-        <div style={{ marginTop: 14 }}>
+        <p className="muted" style={{ marginTop: 8 }}>
+          Pesate los <b>domingos</b>, en ayunas y siempre en las mismas condiciones.
+          {weekAvg && <> Promedio 7 días: <b>{weekAvg} kg</b>.</>}
+        </p>
+        <div style={{ marginTop: 8 }}>
           <Sparkline points={weights} />
           {diff != null && (
             <p className="muted center">
@@ -110,6 +133,33 @@ export default function Progreso({ session }) {
           )}
         </div>
       </div>
+
+      <div className="card">
+        <h2>¿Cómo voy con el peso?</h2>
+        <button className="full ghost" onClick={fetchStatus} disabled={statusBusy}>
+          {statusBusy ? <span className="spinner" /> : '🤖 Pedir estado'}
+        </button>
+        {status && <div className="advice" style={{ marginTop: 12 }}>{status}</div>}
+      </div>
+
+      {history.length > 0 && (
+        <div className="card">
+          <h2>Historial de peso</h2>
+          {history.map((h, i) => (
+            <div className="list-item" key={i}>
+              <div>{dateLabel(h.day)}</div>
+              <div>
+                <b>{h.kg} kg</b>
+                {h.delta != null && h.delta !== 0 && (
+                  <span className="muted" style={{ marginLeft: 8, color: h.delta > 0 ? 'var(--good)' : 'var(--danger)' }}>
+                    {h.delta > 0 ? '▲ +' : '▼ '}{Math.abs(h.delta)} kg
+                  </span>
+                )}
+              </div>
+            </div>
+          ))}
+        </div>
+      )}
 
       {err && <div className="toast" onClick={() => setErr('')}>{err}</div>}
     </>

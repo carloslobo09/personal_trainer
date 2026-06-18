@@ -330,6 +330,22 @@ Deno.serve(async (req) => {
       return json({ result: out })
     }
 
+    // ---------------- PESO: estado / cómo voy ----------------
+    if (action === 'weight_status') {
+      const { data: ws } = await supabase.from('weight_logs')
+        .select('day, weight_kg').order('day', { ascending: false }).limit(12)
+      const hist = (ws || []).map((w) => `${w.day}: ${w.weight_kg} kg`).join('\n') || 'sin registros'
+      const out = await callAI({
+        max_tokens: 450,
+        system: 'Sos entrenador. Evaluás la evolución del peso según el objetivo y la composición del ' +
+          'usuario. Breve, honesto y motivador (español rioplatense). Recordá que en recomposición la ' +
+          'balanza puede no moverse aunque haya progreso (músculo + menos grasa). 2-4 frases, sin tablas.',
+        user: `Perfil:\n${perfil}\n\nHistorial de peso (más reciente primero):\n${hist}\n\n` +
+          `Decime cómo voy: la tendencia, si está alineado con mi objetivo, y un consejo corto.`
+      })
+      return json({ result: out })
+    }
+
     // ---------------- Pregunta libre al coach ----------------
     if (action === 'ask') {
       const q = String(payload.question ?? '').slice(0, 1500)

@@ -33,14 +33,21 @@ body {
 
 header.topbar {
   position: sticky; top: 0; z-index: 10;
-  display: flex; align-items: center; justify-content: space-between;
-  padding: 14px 16px calc(14px); padding-top: calc(14px + env(safe-area-inset-top));
+  display: flex; flex-direction: column; gap: 10px;
+  padding: 14px 16px; padding-top: calc(14px + env(safe-area-inset-top));
   background: linear-gradient(180deg, var(--bg), rgba(15,23,42,.85));
   backdrop-filter: blur(8px);
   border-bottom: 1px solid var(--line);
 }
+.topbar-row { display: flex; align-items: center; justify-content: space-between; }
 header.topbar h1 { font-size: 18px; margin: 0; letter-spacing: .3px; }
 header.topbar .accent { color: var(--accent); }
+.weigh-banner {
+  width: 100%; text-align: center; border: none; border-radius: 12px;
+  background: var(--warn); color: #3a2a00; font-weight: 700; font-size: 14px;
+  padding: 11px 12px; cursor: pointer;
+}
+.weigh-banner:active { transform: scale(.99); }
 
 main { flex: 1; padding: 16px; display: flex; flex-direction: column; gap: 14px; }
 
