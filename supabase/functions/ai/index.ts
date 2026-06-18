@@ -194,11 +194,11 @@ Deno.serve(async (req) => {
         .from('exercise_logs').select('exercise_name').eq('day', day)
       const { data: acts } = await supabase
         .from('activities').select('type, duration_min, intensity, calories_est').eq('day', day)
-      const { data: sups } = await supabase.from('supplements').select('id, name, dose')
+      const { data: sups } = await supabase.from('supplements').select('id, name, dose, pills_per_day')
       const { data: slogs } = await supabase.from('supplement_logs').select('supplement_id').eq('day', day)
       const takenIds = new Set((slogs || []).map((s) => s.supplement_id))
       const supLista = (sups || []).map((s) =>
-        `- ${s.name}${s.dose ? ` (${s.dose})` : ''}: ${takenIds.has(s.id) ? 'tomado' : 'NO tomado'}`)
+        `- ${s.name}${s.dose ? ` (${s.dose})` : ''}${s.pills_per_day ? `, recomendado ${s.pills_per_day} pastilla(s)/día` : ''}: ${takenIds.has(s.id) ? 'tomado' : 'NO tomado'}`)
         .join('\n') || '(sin suplementos configurados)'
       const entreno = logs && logs.length
         ? `Sí (ejercicios registrados: ${logs.map((l) => l.exercise_name).join(', ')}).`
@@ -218,7 +218,11 @@ Deno.serve(async (req) => {
         system: 'Sos entrenador personal y nutricionista, cercano y directo (español rioplatense). ' +
           'Consejos breves y accionables. Recomendás gramos de proteína diaria según peso y si entrenó. ' +
           'Tené en cuenta el cardio/calorías quemadas, la fibra y los suplementos (avisá si falta tomar ' +
-          'alguno o si conviene sumar alguno para el objetivo). Pocos párrafos o bullets, sin tablas largas.',
+          'alguno o si conviene sumar alguno para el objetivo). IMPORTANTE: si algún alimento del día ' +
+          'aporta el mismo nutriente que un suplemento (pescado graso/salmón/sardinas/atún = omega-3; ' +
+          'frutos secos, semillas, legumbres y verduras de hoja = magnesio; carnes/huevos = creatina/B12), ' +
+          'avisá que ese día puede tomar MENOS pastillas de ese suplemento (decí cuántas). ' +
+          'Pocos párrafos o bullets, sin tablas largas.',
         user: `Perfil:\n${perfil}\n\n¿Entrenó gym hoy? ${entreno}\n` +
           `Cardio/deporte de hoy:\n${actLista}\nCalorías quemadas aprox: ${Math.round(burned)}.\n\n` +
           `Comida de hoy (${day}):\n${lista}\n\nTotales comida: ${Math.round(totalC)} kcal, ` +
