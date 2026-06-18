@@ -117,10 +117,11 @@ async function trainingBalance(supabase: any) {
 // Resumen de nutrición + peso reciente
 async function nutritionWeightContext(supabase: any) {
   const since = daysAgoAR(7)
-  const [{ data: foods }, { data: weights }, { data: acts }] = await Promise.all([
+  const [{ data: foods }, { data: weights }, { data: acts }, { data: sups }] = await Promise.all([
     supabase.from('food_logs').select('day, protein_g').gte('day', since),
     supabase.from('weight_logs').select('day, weight_kg').order('day', { ascending: false }).limit(8),
-    supabase.from('activities').select('type, duration_min, calories_est').gte('day', since)
+    supabase.from('activities').select('type, duration_min, calories_est').gte('day', since),
+    supabase.from('supplements').select('name, dose')
   ])
   const byDay: Record<string, number> = {}
   for (const f of foods || []) byDay[f.day] = (byDay[f.day] || 0) + (+f.protein_g || 0)
@@ -135,7 +136,10 @@ async function nutritionWeightContext(supabase: any) {
   const cardio = (acts || []).length
     ? `Cardio/deporte últimos 7 días: ${(acts || []).length} sesiones, ${aMin} min, ~${aKcal} kcal quemadas.`
     : 'Sin cardio/deporte registrado en los últimos 7 días.'
-  return `Proteína promedio últimos 7 días: ${avgP} g/día (días con registro). Peso: ${peso}.\n${cardio}`
+  const stack = (sups || []).length
+    ? `Suplementos del stack: ${(sups || []).map((s) => `${s.name}${s.dose ? ` (${s.dose})` : ''}`).join(', ')}.`
+    : 'No tiene suplementos configurados.'
+  return `Proteína promedio últimos 7 días: ${avgP} g/día (días con registro). Peso: ${peso}.\n${cardio}\n${stack}`
 }
 
 Deno.serve(async (req) => {
@@ -166,9 +170,10 @@ Deno.serve(async (req) => {
         properties: {
           calories: { type: 'number', description: 'kcal totales' },
           protein_g: { type: 'number' }, carbs_g: { type: 'number' }, fat_g: { type: 'number' },
+          fiber_g: { type: 'number', description: 'gramos de fibra' },
           notes: { type: 'string', description: 'comentario breve, 1 frase' }
         },
-        required: ['calories', 'protein_g', 'carbs_g', 'fat_g', 'notes']
+        required: ['calories', 'protein_g', 'carbs_g', 'fat_g', 'fiber_g', 'notes']
       }
       const out = await callAI({
         max_tokens: 400, schema,
@@ -189,6 +194,12 @@ Deno.serve(async (req) => {
         .from('exercise_logs').select('exercise_name').eq('day', day)
       const { data: acts } = await supabase
         .from('activities').select('type, duration_min, intensity, calories_est').eq('day', day)
+      const { data: sups } = await supabase.from('supplements').select('id, name, dose')
+      const { data: slogs } = await supabase.from('supplement_logs').select('supplement_id').eq('day', day)
+      const takenIds = new Set((slogs || []).map((s) => s.supplement_id))
+      const supLista = (sups || []).map((s) =>
+        `- ${s.name}${s.dose ? ` (${s.dose})` : ''}: ${takenIds.has(s.id) ? 'tomado' : 'NO tomado'}`)
+        .join('\n') || '(sin suplementos configurados)'
       const entreno = logs && logs.length
         ? `Sí (ejercicios registrados: ${logs.map((l) => l.exercise_name).join(', ')}).`
         : 'No registró gym hoy.'
@@ -198,18 +209,23 @@ Deno.serve(async (req) => {
         .join('\n') || '(nada)'
       const totalP = (foods || []).reduce((s, f) => s + (+f.protein_g || 0), 0)
       const totalC = (foods || []).reduce((s, f) => s + (+f.calories || 0), 0)
+      const totalF = (foods || []).reduce((s, f) => s + (+f.fiber_g || 0), 0)
       const lista = (foods || []).map((f) =>
         `- ${f.raw_text} (${Math.round(f.calories || 0)} kcal, ${Math.round(f.protein_g || 0)}g prot)`)
         .join('\n') || '(nada registrado)'
       const out = await callAI({
-        max_tokens: 750,
+        max_tokens: 800,
         system: 'Sos entrenador personal y nutricionista, cercano y directo (español rioplatense). ' +
           'Consejos breves y accionables. Recomendás gramos de proteína diaria según peso y si entrenó. ' +
-          'Tené en cuenta el cardio/deporte y las calorías quemadas. Pocos párrafos o bullets, sin tablas largas.',
+          'Tené en cuenta el cardio/calorías quemadas, la fibra y los suplementos (avisá si falta tomar ' +
+          'alguno o si conviene sumar alguno para el objetivo). Pocos párrafos o bullets, sin tablas largas.',
         user: `Perfil:\n${perfil}\n\n¿Entrenó gym hoy? ${entreno}\n` +
           `Cardio/deporte de hoy:\n${actLista}\nCalorías quemadas aprox: ${Math.round(burned)}.\n\n` +
-          `Comida de hoy (${day}):\n${lista}\n\nTotales comida: ${Math.round(totalC)} kcal, ${Math.round(totalP)} g proteína.\n\n` +
-          `Decime cómo voy: si me falta proteína (cuánta apuntar hoy según mi peso, si entrené y lo que quemé) y un consejo concreto.`
+          `Comida de hoy (${day}):\n${lista}\n\nTotales comida: ${Math.round(totalC)} kcal, ` +
+          `${Math.round(totalP)} g proteína, ${Math.round(totalF)} g fibra.\n\n` +
+          `Suplementos de hoy:\n${supLista}\n\n` +
+          `Decime cómo voy: si me falta proteína (cuánta apuntar según mi peso, si entrené y lo que quemé), ` +
+          `cómo va la fibra y los suplementos, y un consejo concreto.`
       })
       return json({ result: out, totals: { calories: Math.round(totalC), protein_g: Math.round(totalP) } })
     }

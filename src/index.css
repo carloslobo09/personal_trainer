@@ -206,3 +206,16 @@ nav.tabs button.active { color: var(--accent); }
 }
 .picker-item .name { font-size: 14px; }
 .picker-item .add { color: var(--accent); font-size: 22px; flex: 0 0 auto; }
+
+/* ---- Checklist de suplementos ---- */
+.sup-item {
+  display: flex; align-items: center; gap: 12px; width: 100%;
+  background: var(--bg); border: 1px solid var(--line); border-radius: 12px;
+  padding: 12px; color: var(--text); font-size: 15px; font-weight: 500; margin-bottom: 8px;
+}
+.sup-item .check {
+  width: 26px; height: 26px; flex: 0 0 auto; border-radius: 8px;
+  border: 2px solid var(--line); display: flex; align-items: center; justify-content: center;
+  color: #06283d; font-weight: 800; font-size: 16px;
+}
+.sup-item .check.on { background: var(--good); border-color: var(--good); }

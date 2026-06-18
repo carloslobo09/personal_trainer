@@ -14,6 +14,10 @@ export default function Perfil({ session }) {
   const [a, setA] = useState('')
   const [qBusy, setQBusy] = useState(false)
 
+  const [sups, setSups] = useState([])
+  const [supName, setSupName] = useState('')
+  const [supDose, setSupDose] = useState('')
+
   async function load() {
     const { data } = await supabase.from('profiles').select('*').eq('id', uid).single()
     setP(data || {
@@ -22,7 +26,25 @@ export default function Perfil({ session }) {
       equipment: [], training_goal: 'equilibrio', body_composition: '', notes: ''
     })
   }
-  useEffect(() => { load() }, [])
+  async function loadSups() {
+    const { data } = await supabase.from('supplements').select('*').order('position')
+    setSups(data || [])
+  }
+  useEffect(() => { load(); loadSups() }, [])
+
+  async function addSup() {
+    if (!supName.trim()) return
+    setErr('')
+    const { error } = await supabase.from('supplements').insert({
+      user_id: uid, name: supName.trim(), dose: supDose.trim() || null, position: sups.length
+    })
+    if (error) { setErr(error.message); return }
+    setSupName(''); setSupDose(''); loadSups()
+  }
+  async function delSup(id) {
+    await supabase.from('supplements').delete().eq('id', id)
+    loadSups()
+  }
 
   function set(k, v) { setP({ ...p, [k]: v }); setSaved(false) }
   function toggleEquip(k) {
@@ -114,6 +136,27 @@ export default function Perfil({ session }) {
         <button className="full" style={{ marginTop: 12 }} onClick={save}>
           {saved ? '✓ Guardado' : '💾 Guardar'}
         </button>
+      </div>
+
+      <div className="card">
+        <h2>Suplementos</h2>
+        <p className="muted">Tu stack diario. La IA lo tiene en cuenta, y lo marcás cada día en Comida.</p>
+        {sups.length === 0 && <p className="muted">Todavía no cargaste suplementos.</p>}
+        {sups.map((s) => (
+          <div className="list-item" key={s.id}>
+            <div>
+              <div>{s.name}</div>
+              {s.dose && <div className="muted">{s.dose}</div>}
+            </div>
+            <button className="x" onClick={() => delSup(s.id)}>✕</button>
+          </div>
+        ))}
+        <label style={{ marginTop: 12 }}>Agregar suplemento</label>
+        <input placeholder="Nombre (ej: Omega-3)" value={supName}
+          onChange={(e) => setSupName(e.target.value)} />
+        <input style={{ marginTop: 8 }} placeholder="Dosis (ej: 920mg EPA / 360mg DHA)"
+          value={supDose} onChange={(e) => setSupDose(e.target.value)} />
+        <button className="full" style={{ marginTop: 10 }} onClick={addSup}>＋ Agregar</button>
       </div>
 
       <div className="card">
