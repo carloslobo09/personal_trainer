@@ -362,6 +362,46 @@ Deno.serve(async (req) => {
       return json({ result: out })
     }
 
+    // ---------------- NUTRICIÓN: calcular metas personalizadas ----------------
+    if (action === 'compute_targets') {
+      const { data: sups } = await supabase.from('supplements').select('name, dose')
+      const supText = (sups || []).map((s) => `${s.name}${s.dose ? ` (${s.dose})` : ''}`).join('; ') || 'ninguno'
+      const schema = {
+        type: 'object',
+        properties: {
+          proteina_g: { type: 'number', description: 'meta diaria de proteína en gramos' },
+          fibra_g: { type: 'number', description: 'meta diaria de fibra en gramos' },
+          calorias: { type: 'number', description: 'meta diaria de calorías' },
+          agua_ml: { type: 'number', description: 'meta diaria de agua en ml' },
+          resumen: { type: 'string', description: '1-2 frases explicando las metas según objetivo y complexión' },
+          suplementos: {
+            type: 'array',
+            items: {
+              type: 'object',
+              properties: {
+                name: { type: 'string', description: 'nombre EXACTO del suplemento del usuario' },
+                pastillas_dia: { type: 'number', description: 'cuántas pastillas por día según la dosis por pastilla' },
+                para_que: { type: 'string', description: 'para qué sirve, 1-2 frases' }
+              }
+            }
+          },
+          faltantes: { type: 'array', items: { type: 'string', description: 'suplemento/vitamina que convendría sumar y por qué, breve' } }
+        },
+        required: ['proteina_g', 'fibra_g', 'calorias', 'agua_ml', 'resumen', 'suplementos', 'faltantes']
+      }
+      const out = await callAI({
+        max_tokens: 1000, schema,
+        system: 'Sos entrenador y nutricionista. Calculás metas diarias PERSONALIZADAS (proteína, fibra, ' +
+          'calorías, agua) según peso, complexión y objetivo del usuario. Para cada suplemento que tiene, ' +
+          'decís cuántas pastillas por día según la dosis por pastilla, y para qué sirve. Sugerís ' +
+          'suplementos/vitaminas que le falten para el objetivo (ej: vitamina D). Español rioplatense.',
+        user: `Perfil:\n${perfil}\n\nSuplementos del usuario (con dosis por pastilla): ${supText}\n\n` +
+          `Calculá mis metas diarias y las pastillas por día de cada suplemento que tengo.`
+      })
+      let parsed; try { parsed = JSON.parse(out) } catch { parsed = null }
+      return json({ result: parsed, raw: out })
+    }
+
     // ---------------- Pregunta libre al coach ----------------
     if (action === 'ask') {
       const q = String(payload.question ?? '').slice(0, 1500)

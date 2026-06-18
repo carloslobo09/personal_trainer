@@ -2,6 +2,24 @@ import { useEffect, useState } from 'react'
 import { supabase } from '../lib/supabase'
 import { ai, today, dateLabel } from '../lib/api'
 
+function MetaBar({ label, cur, target, unit }) {
+  if (!target) return null
+  const pct = Math.min(100, Math.round((cur / target) * 100))
+  const done = cur >= target
+  return (
+    <div style={{ marginBottom: 10 }}>
+      <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: 14 }}>
+        <span>{label}</span>
+        <span style={{ color: done ? 'var(--good)' : 'var(--text)' }}>
+          {Math.round(cur)} / {Math.round(target)} {unit} {done ? '✓' : ''}
+        </span>
+      </div>
+      <div className="bar"><div className="bar-fill"
+        style={{ width: pct + '%', background: done ? 'var(--good)' : 'var(--accent)' }} /></div>
+    </div>
+  )
+}
+
 export default function Comida({ session }) {
   const uid = session.user.id
   const [day, setDay] = useState(today())
@@ -9,20 +27,25 @@ export default function Comida({ session }) {
   const [foods, setFoods] = useState([])
   const [sups, setSups] = useState([])
   const [takenIds, setTakenIds] = useState(new Set())
+  const [targets, setTargets] = useState(null)
+  const [infoId, setInfoId] = useState(null)
   const [busy, setBusy] = useState(false)
+  const [computing, setComputing] = useState(false)
   const [advice, setAdvice] = useState('')
   const [adviceBusy, setAdviceBusy] = useState(false)
   const [err, setErr] = useState('')
 
   async function load() {
-    const [{ data: f }, { data: s }, { data: sl }] = await Promise.all([
+    const [{ data: f }, { data: s }, { data: sl }, { data: prof }] = await Promise.all([
       supabase.from('food_logs').select('*').eq('day', day).order('logged_at'),
       supabase.from('supplements').select('*').order('position'),
-      supabase.from('supplement_logs').select('supplement_id').eq('day', day)
+      supabase.from('supplement_logs').select('supplement_id').eq('day', day),
+      supabase.from('profiles').select('nutrition_targets').eq('id', uid).single()
     ])
     setFoods(f || [])
     setSups(s || [])
     setTakenIds(new Set((sl || []).map((x) => x.supplement_id)))
+    setTargets(prof?.nutrition_targets || null)
   }
   useEffect(() => { load(); setAdvice('') }, [day])
 
@@ -39,8 +62,7 @@ export default function Comida({ session }) {
         ai_notes: r.notes ?? null
       })
       if (error) throw error
-      setText(''); setAdvice('')
-      await load()
+      setText(''); setAdvice(''); await load()
     } catch (e) { setErr(e.message) } finally { setBusy(false) }
   }
 
@@ -56,6 +78,30 @@ export default function Comida({ session }) {
       await supabase.from('supplement_logs').insert({ user_id: uid, supplement_id: s.id, day })
     }
     load()
+  }
+
+  async function computeTargets() {
+    setComputing(true); setErr('')
+    try {
+      const { result } = await ai('compute_targets')
+      if (!result) throw new Error('No se pudieron calcular las metas')
+      await supabase.from('profiles').update({
+        nutrition_targets: {
+          proteina_g: result.proteina_g, fibra_g: result.fibra_g,
+          calorias: result.calorias, agua_ml: result.agua_ml,
+          resumen: result.resumen, faltantes: result.faltantes || []
+        }
+      }).eq('id', uid)
+      for (const sp of result.suplementos || []) {
+        const match = sups.find((x) => x.name.toLowerCase() === String(sp.name).toLowerCase())
+        if (match) {
+          await supabase.from('supplements').update({
+            pills_per_day: Math.round(sp.pastillas_dia) || null, purpose: sp.para_que || null
+          }).eq('id', match.id)
+        }
+      }
+      await load()
+    } catch (e) { setErr(e.message) } finally { setComputing(false) }
   }
 
   async function howAmIDoing() {
@@ -83,7 +129,7 @@ export default function Comida({ session }) {
           )}
         </div>
         <p className="muted" style={{ marginTop: 6 }}>
-          Estás cargando del <b>{dateLabel(day)}</b>. Podés elegir otro día si se te pasó.
+          Estás cargando del <b>{dateLabel(day)}</b>.
         </p>
       </div>
 
@@ -98,14 +144,33 @@ export default function Comida({ session }) {
       </div>
 
       <div className="card">
-        <h2>{dateLabel(day)}</h2>
-        <div className="stat-grid">
-          <div className="stat"><div className="n protein">{tProt}g</div><div className="l">Proteína</div></div>
-          <div className="stat"><div className="n">{tCal}</div><div className="l">Calorías</div></div>
-          <div className="stat"><div className="n">{tCarb}g</div><div className="l">Carbos</div></div>
-        </div>
-        <p className="muted" style={{ marginTop: 8 }}>🌱 Fibra: <b>{tFib} g</b></p>
-        <div style={{ marginTop: 8 }}>
+        <h2>Metas del día ({dateLabel(day)})</h2>
+        {targets ? (
+          <>
+            <MetaBar label="Proteína" cur={tProt} target={targets.proteina_g} unit="g" />
+            <MetaBar label="Fibra" cur={tFib} target={targets.fibra_g} unit="g" />
+            <MetaBar label="Calorías" cur={tCal} target={targets.calorias} unit="kcal" />
+            {targets.agua_ml ? <p className="muted">💧 Agua: meta {Math.round(targets.agua_ml)} ml</p> : null}
+            {targets.resumen && <p className="muted" style={{ marginTop: 6 }}>{targets.resumen}</p>}
+            {targets.faltantes?.length > 0 && (
+              <p className="muted" style={{ marginTop: 6 }}>
+                💡 Te convendría sumar: {targets.faltantes.join(' · ')}
+              </p>
+            )}
+            <button className="ghost full" style={{ marginTop: 10 }} onClick={computeTargets} disabled={computing}>
+              {computing ? <span className="spinner" /> : '↻ Recalcular metas'}
+            </button>
+          </>
+        ) : (
+          <>
+            <p className="muted">Tu entrenador puede calcular tus metas diarias personalizadas según tu peso,
+              complexión y objetivo.</p>
+            <button className="full" style={{ marginTop: 8 }} onClick={computeTargets} disabled={computing}>
+              {computing ? <span className="spinner" /> : '🤖 Calcular mis metas'}
+            </button>
+          </>
+        )}
+        <div style={{ marginTop: 12 }}>
           {foods.length === 0 && <p className="muted">No hay comidas registradas para este día.</p>}
           {foods.map((f) => (
             <div className="list-item" key={f.id}>
@@ -131,19 +196,26 @@ export default function Comida({ session }) {
         {sups.map((s) => {
           const taken = takenIds.has(s.id)
           return (
-            <button key={s.id} className="sup-item" onClick={() => toggleSup(s)}>
-              <span className={`check ${taken ? 'on' : ''}`}>{taken ? '✓' : ''}</span>
-              <span style={{ flex: 1, textAlign: 'left' }}>
-                {s.name}{s.dose ? <span className="muted"> · {s.dose}</span> : ''}
-              </span>
-            </button>
+            <div key={s.id}>
+              <div className="sup-item">
+                <button className={`check ${taken ? 'on' : ''}`} onClick={() => toggleSup(s)}>
+                  {taken ? '✓' : ''}
+                </button>
+                <div style={{ flex: 1 }} onClick={() => setInfoId(infoId === s.id ? null : s.id)}>
+                  <div>{s.name}{s.pills_per_day ? <span className="series"> · {s.pills_per_day} pastilla(s)/día</span> : ''}</div>
+                  {s.dose && <div className="muted">{s.dose}</div>}
+                </div>
+                <button className="info" onClick={() => setInfoId(infoId === s.id ? null : s.id)}>ℹ️</button>
+              </div>
+              {infoId === s.id && (
+                <div className="advice" style={{ marginBottom: 8 }}>
+                  {s.purpose || 'Tocá "Calcular mis metas" arriba para que la IA complete para qué sirve y cuántas tomar.'}
+                </div>
+              )}
+            </div>
           )
         })}
-        {sups.length > 0 && (
-          <p className="muted" style={{ marginTop: 8 }}>
-            Tomados: {takenIds.size}/{sups.length}
-          </p>
-        )}
+        {sups.length > 0 && <p className="muted" style={{ marginTop: 4 }}>Tomados: {takenIds.size}/{sups.length}</p>}
       </div>
 
       <div className="card">

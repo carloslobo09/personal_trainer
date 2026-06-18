@@ -21,6 +21,7 @@ create table if not exists public.profiles (
 alter table public.profiles add column if not exists equipment text[] default '{}';
 alter table public.profiles add column if not exists training_goal text default 'equilibrio';  -- definir | equilibrio | musculo
 alter table public.profiles add column if not exists body_composition text;  -- complexión / dónde acumula grasa / dónde quiere crecer
+alter table public.profiles add column if not exists nutrition_targets jsonb;  -- metas diarias personalizadas (proteína, fibra, calorías, agua, etc.)
 
 -- 2) COMIDAS (un registro por cosa que comés)
 create table if not exists public.food_logs (
@@ -115,14 +116,18 @@ create index if not exists activities_user_day on public.activities(user_id, day
 
 -- 8) SUPLEMENTOS (stack configurado por el usuario)
 create table if not exists public.supplements (
-  id          bigint generated always as identity primary key,
-  user_id     uuid not null references auth.users(id) on delete cascade,
-  name        text not null,        -- ej "Omega-3", "Magnesio", "Creatina"
-  dose        text,                 -- ej "920mg EPA / 360mg DHA", "100 mg", "5 g"
-  position    int not null default 0,
-  created_at  timestamptz not null default now()
+  id            bigint generated always as identity primary key,
+  user_id       uuid not null references auth.users(id) on delete cascade,
+  name          text not null,        -- ej "Omega-3", "Magnesio", "Creatina"
+  dose          text,                 -- ej "920mg EPA / 360mg DHA", "100 mg", "5 g"
+  pills_per_day int,                  -- pastillas/día recomendadas (lo calcula la IA)
+  purpose       text,                 -- para qué sirve (lo completa la IA)
+  position      int not null default 0,
+  created_at    timestamptz not null default now()
 );
 create index if not exists supplements_user on public.supplements(user_id);
+alter table public.supplements add column if not exists pills_per_day int;
+alter table public.supplements add column if not exists purpose text;
 
 -- 9) REGISTRO DIARIO de suplementos tomados (presencia = tomado ese día)
 create table if not exists public.supplement_logs (

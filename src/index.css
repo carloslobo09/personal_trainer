@@ -219,3 +219,9 @@ nav.tabs button.active { color: var(--accent); }
   color: #06283d; font-weight: 800; font-size: 16px;
 }
 .sup-item .check.on { background: var(--good); border-color: var(--good); }
+
+/* ---- Barras de meta + suplemento info ---- */
+.sup-item .check { background: transparent; padding: 0; }
+.sup-item .info { background: none; padding: 4px 8px; font-size: 16px; flex: 0 0 auto; }
+.bar { height: 8px; background: var(--bg); border: 1px solid var(--line); border-radius: 999px; overflow: hidden; margin-top: 4px; }
+.bar-fill { height: 100%; border-radius: 999px; transition: width .3s; }
