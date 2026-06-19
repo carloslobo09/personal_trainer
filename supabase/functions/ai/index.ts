@@ -233,7 +233,13 @@ Deno.serve(async (req) => {
       }
       const ptxt = await callAI({
         max_tokens: 900, schema: parseSchema,
-        system: 'Sos nutricionista. Dividís la comida en ingredientes individuales y SEPARÁS los platos ' +
+        system: 'Sos nutricionista. El usuario es de Argentina (Salta): interpretá los términos locales ' +
+          '(zapallo=squash, choclo=corn, palta=avocado, morrón=bell pepper, batata=sweet potato, ' +
+          'panceta=bacon, queso cremoso=soft white cheese, frutilla=strawberry) y DESCOMPONÉ los platos ' +
+          'típicos en sus ingredientes para buscarlos en USDA (empanada=masa+relleno de carne; ' +
+          'milanesa=carne+pan rallado+huevo+aceite; humita=choclo+cebolla+queso; tamal=maíz+carne; ' +
+          'locro=maíz+zapallo+carne+porotos; provoleta=queso provolone). ' +
+          'Dividís la comida en ingredientes individuales y SEPARÁS los platos ' +
           'combinados (ej: "avena con leche" = avena + leche; "café con leche" = café + leche). Para cada ingrediente: ' +
           'el nombre en INGLÉS simple y genérico para USDA (para CARNES incluí "meat" y el método de ' +
           'cocción, ej "chicken thigh meat roasted"; para secos como avena/arroz/pasta aclará si está ' +
