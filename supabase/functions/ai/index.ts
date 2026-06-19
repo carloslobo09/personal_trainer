@@ -239,6 +239,8 @@ Deno.serve(async (req) => {
           'típicos en sus ingredientes para buscarlos en USDA (empanada=masa+relleno de carne; ' +
           'milanesa=carne+pan rallado+huevo+aceite; humita=choclo+cebolla+queso; tamal=maíz+carne; ' +
           'locro=maíz+zapallo+carne+porotos; provoleta=queso provolone). ' +
+          'Tamaños típicos por unidad: 1 empanada ≈ 90g (≈45g masa + 45g relleno); 1 milanesa ≈ 130g; ' +
+          '1 medialuna ≈ 40g; 1 porción de pizza ≈ 120g; 1 rodaja de pan ≈ 30g. ' +
           'Dividís la comida en ingredientes individuales y SEPARÁS los platos ' +
           'combinados (ej: "avena con leche" = avena + leche; "café con leche" = café + leche). Para cada ingrediente: ' +
           'el nombre en INGLÉS simple y genérico para USDA (para CARNES incluí "meat" y el método de ' +
