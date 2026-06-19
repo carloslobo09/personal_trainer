@@ -259,3 +259,7 @@ nav.tabs button.active { color: var(--accent); }
   margin-top: 10px; background: rgba(74,222,128,.1); border: 1px solid var(--good);
   color: var(--good); border-radius: 10px; padding: 10px; font-size: 14px;
 }
+
+/* ---- Edición manual de macros ---- */
+.edit-macros { background: var(--bg); border: 1px solid var(--line); border-radius: 12px; padding: 12px; margin: 6px 0 10px; }
+.macro-grid { display: grid; grid-template-columns: repeat(3, 1fr); gap: 8px; }

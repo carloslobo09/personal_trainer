@@ -2,6 +2,11 @@ import { useEffect, useState } from 'react'
 import { supabase } from '../lib/supabase'
 import { ai, today, dateLabel } from '../lib/api'
 
+const EDIT_FIELDS = [
+  { k: 'calories', l: 'Calorías' }, { k: 'protein_g', l: 'Proteína' },
+  { k: 'carbs_g', l: 'Carbos' }, { k: 'fat_g', l: 'Grasa' }, { k: 'fiber_g', l: 'Fibra' }
+]
+
 function MetaBar({ label, cur, target, unit }) {
   if (!target) return null
   const pct = Math.min(100, Math.round((cur / target) * 100))
@@ -29,6 +34,8 @@ export default function Comida({ session }) {
   const [qtyById, setQtyById] = useState({})
   const [targets, setTargets] = useState(null)
   const [infoId, setInfoId] = useState(null)
+  const [editId, setEditId] = useState(null)
+  const [editVals, setEditVals] = useState({})
   const [busy, setBusy] = useState(false)
   const [computing, setComputing] = useState(false)
   const [advice, setAdvice] = useState('')
@@ -69,6 +76,21 @@ export default function Comida({ session }) {
   async function del(id) {
     await supabase.from('food_logs').delete().eq('id', id)
     load()
+  }
+
+  function startEdit(f) {
+    setEditId(f.id)
+    setEditVals({
+      calories: f.calories ?? '', protein_g: f.protein_g ?? '', carbs_g: f.carbs_g ?? '',
+      fat_g: f.fat_g ?? '', fiber_g: f.fiber_g ?? ''
+    })
+  }
+  async function saveEdit() {
+    const upd = {}
+    EDIT_FIELDS.forEach(({ k }) => { upd[k] = (editVals[k] === '' || editVals[k] == null) ? null : parseFloat(editVals[k]) })
+    const { error } = await supabase.from('food_logs').update(upd).eq('id', editId)
+    if (error) { setErr(error.message); return }
+    setEditId(null); load()
   }
 
   async function incSup(s) {
@@ -177,16 +199,38 @@ export default function Comida({ session }) {
         <div style={{ marginTop: 12 }}>
           {foods.length === 0 && <p className="muted">No hay comidas registradas para este día.</p>}
           {foods.map((f) => (
-            <div className="list-item" key={f.id}>
-              <div>
-                <div>{f.raw_text}</div>
-                <div className="muted">
-                  {Math.round(f.calories || 0)} kcal · {Math.round(f.protein_g || 0)}g prot
-                  {f.fiber_g != null ? ` · ${Math.round(f.fiber_g)}g fibra` : ''}
-                  {f.ai_notes ? ` · ${f.ai_notes}` : ''}
+            <div key={f.id}>
+              <div className="list-item">
+                <div>
+                  <div>{f.raw_text}</div>
+                  <div className="muted">
+                    {Math.round(f.calories || 0)} kcal · {Math.round(f.protein_g || 0)}g prot
+                    {f.fiber_g != null ? ` · ${Math.round(f.fiber_g)}g fibra` : ''}
+                    {f.ai_notes ? ` · ${f.ai_notes}` : ''}
+                  </div>
+                </div>
+                <div style={{ display: 'flex', gap: 2, flex: '0 0 auto' }}>
+                  <button className="x" onClick={() => startEdit(f)} title="Editar">✏️</button>
+                  <button className="x" onClick={() => del(f.id)} title="Borrar">✕</button>
                 </div>
               </div>
-              <button className="x" onClick={() => del(f.id)}>✕</button>
+              {editId === f.id && (
+                <div className="edit-macros">
+                  <div className="macro-grid">
+                    {EDIT_FIELDS.map(({ k, l }) => (
+                      <div key={k}>
+                        <label style={{ margin: '0 0 2px' }}>{l}</label>
+                        <input type="number" inputMode="decimal" value={editVals[k] ?? ''}
+                          onChange={(e) => setEditVals({ ...editVals, [k]: e.target.value })} />
+                      </div>
+                    ))}
+                  </div>
+                  <div className="row" style={{ marginTop: 8 }}>
+                    <button onClick={saveEdit}>Guardar</button>
+                    <button className="ghost" onClick={() => setEditId(null)}>Cancelar</button>
+                  </div>
+                </div>
+              )}
             </div>
           ))}
         </div>
