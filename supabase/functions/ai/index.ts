@@ -75,7 +75,11 @@ async function usdaLookup(query: string, key: string) {
   let foods = await search(true)
   if (!foods.length) foods = await search(false)
   if (!foods.length) return null
-  const bad = /skin \(|baby food|infant|added solution/i
+  // Si el alimento NO es seco/crudo, descartamos versiones secas/en polvo/concentradas (ej. leche en polvo)
+  const wantsDry = /\b(dry|dried|raw|powder|uncooked|flour|oat)\b/i.test(query)
+  const bad = wantsDry
+    ? /skin \(|baby food|infant|added solution/i
+    : /skin \(|baby food|infant|added solution|\bdry\b|\bdried\b|powder|dehydrated|condensed|evaporated/i
   const pick = foods.find((f: any) => !bad.test(f.description || '')) || foods[0]
   const ns = pick.foodNutrients || []
   const get = (num: string) => { const n = ns.find((x: any) => String(x.nutrientNumber) === num); return n ? Number(n.value) : null }
@@ -233,7 +237,8 @@ Deno.serve(async (req) => {
           'combinados (ej: "avena con leche" = avena + leche; "café con leche" = café + leche). Para cada ingrediente: ' +
           'el nombre en INGLÉS simple y genérico para USDA (para CARNES incluí "meat" y el método de ' +
           'cocción, ej "chicken thigh meat roasted"; para secos como avena/arroz/pasta aclará si está ' +
-          'CRUDO/SECO o COCIDO, ej "oats dry", "white rice cooked"); los gramos COMESTIBLES en ESE estado ' +
+          'CRUDO/SECO o COCIDO, ej "oats dry", "white rice cooked"; para lácteos líquidos aclará "fluid", ej ' +
+          '"skim milk fluid"); los gramos COMESTIBLES en ESE estado ' +
           '(si dice "40g de avena" es seca → 40g de "oats dry"; un patamuslo de 170g con hueso ≈ 120g de carne); ' +
           'y un estimado por 100g de respaldo REALISTA (pollo ~25g prot, avena seca ~380kcal/13g prot, ' +
           'arroz cocido ~130kcal/2.7g prot, pan ~8g prot, banana ~1g prot). Asumí porciones típicas si es ambiguo.',
