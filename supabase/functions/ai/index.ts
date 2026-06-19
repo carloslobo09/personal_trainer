@@ -89,6 +89,17 @@ function goalGuide(goal: string) {
   return g[goal] || g.equilibrio
 }
 
+// Cantidad de ejercicios según el método (split): cubrir todo vs concentrar volumen.
+function countGuide(split: string) {
+  const m: Record<string, string> = {
+    full_body: '6 a 8 ejercicios cubriendo TODOS los grupos principales (≈1 por grupo: pecho, espalda, hombros, cuádriceps, isquios/glúteos, y core o brazos).',
+    upper_lower: '5 a 7 ejercicios (2-3 por zona del tren que toca).',
+    ppl: '4 a 6 ejercicios (alrededor de 2 por grupo).',
+    arnold: '5 a 7 ejercicios concentrados en los grupos del día (varios por músculo).'
+  }
+  return m[split] || '4 a 6 ejercicios.'
+}
+
 // ----- Fechas en horario de Argentina -----
 const AR_TZ = 'America/Argentina/Buenos_Aires'
 const fmtAR = (d: Date) =>
@@ -244,6 +255,7 @@ Deno.serve(async (req) => {
     if (action === 'build_combo') {
       const focus = String(payload.focus_label ?? 'que decidas vos').slice(0, 60)
       const goal = String(payload.goal ?? 'equilibrio')
+      const split = String(payload.split ?? '')
       const felt = String(payload.felt ?? '').slice(0, 400)
       const cands = candidatesBlock(payload.candidates || [])
       const balance = await trainingBalance(supabase)
@@ -270,14 +282,16 @@ Deno.serve(async (req) => {
         required: ['titulo', 'focus', 'motivo', 'ejercicios']
       }
       const out = await callAI({
-        max_tokens: 2000, schema,
+        max_tokens: 2400, schema,
         system: 'Sos entrenador experto en hipertrofia. Armás un combo para crecimiento EQUILIBRADO de ' +
           'TODO el cuerpo, pero si el usuario pide ÉNFASIS en ciertos músculos, priorizás ejercicios para ' +
           'esos músculos (más volumen) sin descuidar lo demás. Tené en cuenta su composición corporal y ' +
-          'objetivo. Considerás qué trabajó recientemente. Elegís entre 4 y 6 ejercicios SOLO de la lista ' +
-          'de candidatos, usando su id EXACTO (no inventes ids). El rango de reps respeta el objetivo. ' +
-          'Traducís nombre y técnica al español rioplatense.',
+          'objetivo. Considerás qué trabajó recientemente. Elegís SOLO ejercicios de la lista de ' +
+          'candidatos (usando su id EXACTO, no inventes ids); la CANTIDAD de ejercicios la definís según ' +
+          'la indicación del método. El rango de reps respeta el objetivo. Traducís nombre y técnica al ' +
+          'español rioplatense.',
         user: `Perfil:\n${perfil}\n\nEnfoque pedido: ${focus}\n${goalGuide(goal)}\n` +
+          `Cantidad de ejercicios: ${countGuide(split)}\n` +
           `Énfasis / preferencias del usuario para este combo: "${felt || 'ninguna'}"\n\n${balance}\n\n` +
           `Candidatos (id | nombre | músculo | equipo):\n${cands}\n\n` +
           `Armá el combo priorizando el énfasis pedido y respetando el balance del cuerpo.`

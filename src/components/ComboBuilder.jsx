@@ -86,7 +86,7 @@ export default function ComboBuilder({ session, equipment, defaultGoal = 'equili
         setBusy(false); return
       }
       const { result } = await ai('build_combo', {
-        focus_label: focusLabel, goal, felt: felt.trim(), candidates
+        focus_label: focusLabel, goal, felt: felt.trim(), candidates, split
       })
       if (!result?.ejercicios?.length) throw new Error('La IA no devolvió ejercicios')
       setCurMuscles(muscles); setCurFocus(d ? d.name : (result.focus || null))
