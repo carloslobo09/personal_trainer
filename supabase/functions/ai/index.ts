@@ -63,6 +63,22 @@ async function callAI(opts: { system: string; user: string; max_tokens?: number;
   return data.choices?.[0]?.message?.content ?? ''
 }
 
+// Busca un alimento en USDA FoodData Central y devuelve macros por 100g.
+async function usdaLookup(query: string, key: string) {
+  const url = `https://api.nal.usda.gov/fdc/v1/foods/search?api_key=${key}` +
+    `&query=${encodeURIComponent(query)}&pageSize=1&dataType=${encodeURIComponent('Foundation,SR Legacy')}`
+  const res = await fetch(url)
+  if (!res.ok) return null
+  const data = await res.json()
+  const food = data.foods?.[0]
+  if (!food) return null
+  const ns = food.foodNutrients || []
+  const get = (num: string) => { const n = ns.find((x: any) => String(x.nutrientNumber) === num); return n ? Number(n.value) : null }
+  const kcal = get('208')
+  if (kcal == null) return null
+  return { kcal, prot: get('203') || 0, carb: get('205') || 0, fat: get('204') || 0, fib: get('291') || 0 }
+}
+
 function profileBlock(p: any) {
   if (!p) return 'Sin datos de perfil.'
   const goalMap: Record<string, string> = {
@@ -185,30 +201,67 @@ Deno.serve(async (req) => {
     // ---------------- COMIDA: estimar macros ----------------
     if (action === 'analyze_food') {
       const text = String(payload.text ?? '').slice(0, 2000)
-      const schema = {
+      // 1) La IA divide la comida en ingredientes (con nombre en inglés para USDA + gramos + respaldo)
+      const parseSchema = {
         type: 'object',
         properties: {
-          desglose: { type: 'string', description: 'una línea por alimento con su cantidad y kcal/proteína aprox (ej: "pan 30g ~80kcal/3g prot; queso untable 20g ~60kcal/2g prot")' },
-          calories: { type: 'number', description: 'kcal totales (coherente con el desglose)' },
-          protein_g: { type: 'number' }, carbs_g: { type: 'number' }, fat_g: { type: 'number' },
-          fiber_g: { type: 'number', description: 'gramos de fibra' },
-          notes: { type: 'string', description: 'comentario breve, 1 frase' }
+          items: {
+            type: 'array',
+            items: {
+              type: 'object',
+              properties: {
+                original: { type: 'string', description: 'cómo lo nombró el usuario, en español' },
+                query: { type: 'string', description: 'nombre del alimento en INGLÉS simple y genérico para buscar en USDA (ej: "chicken thigh cooked", "white rice cooked", "banana raw", "baked potato")' },
+                grams: { type: 'number', description: 'gramos comestibles estimados (peso cocido; descontá hueso/piel no comestible)' },
+                est_kcal: { type: 'number', description: 'kcal por 100g, estimación de respaldo' },
+                est_protein: { type: 'number' }, est_carbs: { type: 'number' }, est_fat: { type: 'number' }, est_fiber: { type: 'number' }
+              },
+              required: ['original', 'query', 'grams', 'est_kcal', 'est_protein', 'est_carbs', 'est_fat', 'est_fiber']
+            }
+          }
         },
-        required: ['desglose', 'calories', 'protein_g', 'carbs_g', 'fat_g', 'fiber_g', 'notes']
+        required: ['items']
       }
-      const out = await callAI({
-        max_tokens: 700, schema,
-        system: 'Sos nutricionista experto. Estimás macros razonando ALIMENTO POR ALIMENTO con valores ' +
-          'estándar por 100g y la porción indicada; primero completás el desglose y después sumás los ' +
-          'totales coherentes con ese desglose. REGLAS: las fuentes ALTAS de proteína son carne, pescado, ' +
-          'huevo, lácteos duros y legumbres; el pan, las frutas, las verduras, el arroz y los quesos ' +
-          'untables/cremosos NO son altos en proteína (no la sobreestimes). Tené en cuenta la cocción y ' +
-          'si la carne viene con piel/hueso (el patamuslo/muslo de pollo con piel tiene bastante grasa). ' +
-          'Si una porción es ambigua, asumí una cantidad típica y aclarala en el desglose. Español rioplatense.',
-        user: `Perfil:\n${perfil}\n\nComida: "${text}"\n\nDesglosá cada alimento y estimá los totales.`
+      const ptxt = await callAI({
+        max_tokens: 900, schema: parseSchema,
+        system: 'Sos nutricionista. Dividís la comida en ingredientes individuales. Para cada uno: el ' +
+          'nombre en INGLÉS simple y genérico para buscar en la base USDA; los gramos comestibles ' +
+          'estimados (peso cocido, descontando hueso/piel); y un estimado por 100g de respaldo. Asumí ' +
+          'porciones típicas si es ambiguo. Recordá: pan, frutas, verduras, arroz y quesos untables NO ' +
+          'son altos en proteína.',
+        user: `Comida: "${text}"\n\nDividila en ingredientes con su cantidad en gramos.`
       })
-      let parsed; try { parsed = JSON.parse(out) } catch { parsed = null }
-      return json({ result: parsed, raw: out })
+      let parsed: any; try { parsed = JSON.parse(ptxt) } catch { parsed = null }
+      const items = parsed?.items || []
+      const USDA = Deno.env.get('USDA_API_KEY')
+
+      // 2) Para cada ingrediente: macros reales de USDA (o el respaldo de la IA)
+      const enriched = await Promise.all(items.map(async (it: any) => {
+        let per100: any = null, src = 'estimado'
+        if (USDA && it.query) {
+          try { const u = await usdaLookup(it.query, USDA); if (u) { per100 = u; src = 'USDA' } } catch { /* sigue con respaldo */ }
+        }
+        if (!per100) per100 = { kcal: +it.est_kcal || 0, prot: +it.est_protein || 0, carb: +it.est_carbs || 0, fat: +it.est_fat || 0, fib: +it.est_fiber || 0 }
+        const f = (+it.grams || 0) / 100
+        return {
+          original: it.original, grams: +it.grams || 0, src,
+          cal: per100.kcal * f, prot: per100.prot * f, carb: per100.carb * f, fat: per100.fat * f, fib: per100.fib * f
+        }
+      }))
+
+      // 3) Sumar y armar desglose
+      const tot = enriched.reduce((a, e) => ({
+        cal: a.cal + e.cal, prot: a.prot + e.prot, carb: a.carb + e.carb, fat: a.fat + e.fat, fib: a.fib + e.fib
+      }), { cal: 0, prot: 0, carb: 0, fat: 0, fib: 0 })
+      const desglose = enriched.map((e) =>
+        `${e.original} (${e.src}) ${Math.round(e.grams)}g ~${Math.round(e.cal)}kcal/${Math.round(e.prot)}g prot`).join('; ')
+
+      const result = {
+        calories: Math.round(tot.cal), protein_g: Math.round(tot.prot), carbs_g: Math.round(tot.carb),
+        fat_g: Math.round(tot.fat), fiber_g: Math.round(tot.fib),
+        desglose: desglose || '(no se pudo desglosar)', notes: ''
+      }
+      return json({ result, raw: ptxt })
     }
 
     // ---------------- COMIDA: consejo del día ----------------
