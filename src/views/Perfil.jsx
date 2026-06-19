@@ -102,9 +102,6 @@ export default function Perfil({ session }) {
           value={p.body_composition ?? ''} onChange={(e) => set('body_composition', e.target.value)} />
         <label>Notas (lesiones, preferencias, etc.)</label>
         <textarea value={p.notes ?? ''} onChange={(e) => set('notes', e.target.value)} />
-        <button className="full" style={{ marginTop: 12 }} onClick={save}>
-          {saved ? '✓ Guardado' : '💾 Guardar perfil'}
-        </button>
       </div>
 
       <div className="card">
@@ -116,9 +113,6 @@ export default function Perfil({ session }) {
               onClick={() => toggleEquip(k)}>{EQUIPMENT_ES[k]}</button>
           ))}
         </div>
-        <button className="full" style={{ marginTop: 12 }} onClick={save}>
-          {saved ? '✓ Guardado' : '💾 Guardar'}
-        </button>
       </div>
 
       <div className="card">
@@ -133,10 +127,11 @@ export default function Perfil({ session }) {
         <p className="muted" style={{ marginTop: 8 }}>
           {GOALS[p.training_goal || 'equilibrio'].desc} (~{GOALS[p.training_goal || 'equilibrio'].reps} reps)
         </p>
-        <button className="full" style={{ marginTop: 12 }} onClick={save}>
-          {saved ? '✓ Guardado' : '💾 Guardar'}
-        </button>
       </div>
+
+      <button className="full" onClick={save}>
+        {saved ? '✓ Guardado' : '💾 Guardar perfil'}
+      </button>
 
       <div className="card">
         <h2>Suplementos</h2>
