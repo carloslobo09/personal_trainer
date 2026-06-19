@@ -64,15 +64,20 @@ async function callAI(opts: { system: string; user: string; max_tokens?: number;
 }
 
 // Busca un alimento en USDA FoodData Central y devuelve macros por 100g.
+// El primer resultado suele ser malo, así que filtramos partes raras (piel sola, etc.) y elegimos el mejor.
 async function usdaLookup(query: string, key: string) {
-  const url = `https://api.nal.usda.gov/fdc/v1/foods/search?api_key=${key}` +
-    `&query=${encodeURIComponent(query)}&pageSize=1&dataType=${encodeURIComponent('Foundation,SR Legacy')}`
-  const res = await fetch(url)
-  if (!res.ok) return null
-  const data = await res.json()
-  const food = data.foods?.[0]
-  if (!food) return null
-  const ns = food.foodNutrients || []
+  const baseu = `https://api.nal.usda.gov/fdc/v1/foods/search?api_key=${key}&pageSize=10&dataType=${encodeURIComponent('Foundation,SR Legacy')}`
+  const search = async (req: boolean) => {
+    const url = `${baseu}&query=${encodeURIComponent(query)}${req ? '&requireAllWords=true' : ''}`
+    const r = await fetch(url); if (!r.ok) return []
+    return (await r.json()).foods || []
+  }
+  let foods = await search(true)
+  if (!foods.length) foods = await search(false)
+  if (!foods.length) return null
+  const bad = /skin \(|baby food|infant|added solution/i
+  const pick = foods.find((f: any) => !bad.test(f.description || '')) || foods[0]
+  const ns = pick.foodNutrients || []
   const get = (num: string) => { const n = ns.find((x: any) => String(x.nutrientNumber) === num); return n ? Number(n.value) : null }
   const kcal = get('208')
   if (kcal == null) return null
@@ -224,11 +229,12 @@ Deno.serve(async (req) => {
       }
       const ptxt = await callAI({
         max_tokens: 900, schema: parseSchema,
-        system: 'Sos nutricionista. Dividís la comida en ingredientes individuales. Para cada uno: el ' +
-          'nombre en INGLÉS simple y genérico para buscar en la base USDA; los gramos comestibles ' +
-          'estimados (peso cocido, descontando hueso/piel); y un estimado por 100g de respaldo. Asumí ' +
-          'porciones típicas si es ambiguo. Recordá: pan, frutas, verduras, arroz y quesos untables NO ' +
-          'son altos en proteína.',
+        system: 'Sos nutricionista. Dividís la comida en ingredientes individuales. Para cada uno: ' +
+          'el nombre en INGLÉS simple y genérico para USDA (para CARNES incluí "meat" y el método de ' +
+          'cocción, ej "chicken thigh meat roasted", "beef steak grilled"); los gramos COMESTIBLES ' +
+          'estimados, ya sin hueso (ej: un patamuslo de 170g con hueso ≈ 120g de carne); y un estimado ' +
+          'por 100g de respaldo REALISTA (pollo ~25g prot, arroz cocido ~2.7g, pan ~8g, banana ~1g). ' +
+          'Asumí porciones típicas si es ambiguo.',
         user: `Comida: "${text}"\n\nDividila en ingredientes con su cantidad en gramos.`
       })
       let parsed: any; try { parsed = JSON.parse(ptxt) } catch { parsed = null }
