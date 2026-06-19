@@ -38,6 +38,8 @@ export default function ComboDetail({ session, routineId, equipment, onBack, onD
   const [showPicker, setShowPicker] = useState(false)
   const [pending, setPending] = useState(null)  // ejercicio elegido esperando peso inicial
   const [pendWeight, setPendWeight] = useState('')
+  const [editId, setEditId] = useState(null)    // ejercicio en edición (peso inicial/series/reps)
+  const [editVals, setEditVals] = useState({})
   const [err, setErr] = useState('')
   const [busy, setBusy] = useState(false)
 
@@ -77,6 +79,24 @@ export default function ComboDetail({ session, routineId, equipment, onBack, onD
   async function undoLog(log) {
     await supabase.from('exercise_logs').delete().eq('id', log.id)
     load()
+  }
+
+  function startEdit(rex) {
+    setEditId(rex.id)
+    setEditVals({ start: rex.start_weight_kg ?? '', sets: rex.target_sets ?? '', reps: rex.target_reps ?? '' })
+  }
+  async function saveEdit(rex) {
+    const w = parseFloat(editVals.start)
+    if (!w) { setErr('Poné el peso inicial'); return }
+    const upd = { start_weight_kg: w }
+    if (editVals.sets !== '') upd.target_sets = String(editVals.sets)
+    if (editVals.reps !== '') upd.target_reps = String(editVals.reps)
+    const { error } = await supabase.from('routine_exercises').update(upd).eq('id', rex.id)
+    if (error) { setErr(error.message); return }
+    // ajustar el registro inicial (el más antiguo) para que coincida con el nuevo peso inicial
+    const logs = logsByEx[rex.id] || []
+    if (logs.length) await supabase.from('exercise_logs').update({ weight_kg: w }).eq('id', logs[0].id)
+    setEditId(null); load()
   }
 
   async function removeEx(rex) {
@@ -173,9 +193,37 @@ export default function ComboDetail({ session, routineId, equipment, onBack, onD
                 <div className="series">{rex.target_sets}{rex.target_reps ? ` × ${rex.target_reps} reps` : ''}</div>
                 <div className="muted">{musclesEs(rex.primary_muscles).join(', ')}</div>
               </div>
-              <button className="x" onClick={() => removeEx(rex)}>✕</button>
+              <div style={{ display: 'flex', flexDirection: 'column', gap: 2, flex: '0 0 auto' }}>
+                <button className="x" onClick={() => startEdit(rex)} title="Editar">✏️</button>
+                <button className="x" onClick={() => removeEx(rex)} title="Quitar">✕</button>
+              </div>
             </div>
             {rex.description_es && <div className="how">{rex.description_es}</div>}
+            {editId === rex.id && (
+              <div className="edit-macros">
+                <div className="row">
+                  <div>
+                    <label style={{ margin: '0 0 2px' }}>Peso inicial (kg)</label>
+                    <input type="number" inputMode="decimal" value={editVals.start ?? ''}
+                      onChange={(e) => setEditVals({ ...editVals, start: e.target.value })} />
+                  </div>
+                  <div>
+                    <label style={{ margin: '0 0 2px' }}>Series</label>
+                    <input value={editVals.sets ?? ''}
+                      onChange={(e) => setEditVals({ ...editVals, sets: e.target.value })} />
+                  </div>
+                  <div>
+                    <label style={{ margin: '0 0 2px' }}>Reps</label>
+                    <input value={editVals.reps ?? ''}
+                      onChange={(e) => setEditVals({ ...editVals, reps: e.target.value })} />
+                  </div>
+                </div>
+                <div className="row" style={{ marginTop: 8 }}>
+                  <button onClick={() => saveEdit(rex)}>Guardar</button>
+                  <button className="ghost" onClick={() => setEditId(null)}>Cancelar</button>
+                </div>
+              </div>
+            )}
 
             <div className="progress-row">
               <div><span className="muted">Inicial</span><br />{rex.start_weight_kg} kg</div>
