@@ -229,12 +229,14 @@ Deno.serve(async (req) => {
       }
       const ptxt = await callAI({
         max_tokens: 900, schema: parseSchema,
-        system: 'Sos nutricionista. Dividís la comida en ingredientes individuales. Para cada uno: ' +
+        system: 'Sos nutricionista. Dividís la comida en ingredientes individuales y SEPARÁS los platos ' +
+          'combinados (ej: "avena con leche" = avena + leche; "café con leche" = café + leche). Para cada ingrediente: ' +
           'el nombre en INGLÉS simple y genérico para USDA (para CARNES incluí "meat" y el método de ' +
-          'cocción, ej "chicken thigh meat roasted", "beef steak grilled"); los gramos COMESTIBLES ' +
-          'estimados, ya sin hueso (ej: un patamuslo de 170g con hueso ≈ 120g de carne); y un estimado ' +
-          'por 100g de respaldo REALISTA (pollo ~25g prot, arroz cocido ~2.7g, pan ~8g, banana ~1g). ' +
-          'Asumí porciones típicas si es ambiguo.',
+          'cocción, ej "chicken thigh meat roasted"; para secos como avena/arroz/pasta aclará si está ' +
+          'CRUDO/SECO o COCIDO, ej "oats dry", "white rice cooked"); los gramos COMESTIBLES en ESE estado ' +
+          '(si dice "40g de avena" es seca → 40g de "oats dry"; un patamuslo de 170g con hueso ≈ 120g de carne); ' +
+          'y un estimado por 100g de respaldo REALISTA (pollo ~25g prot, avena seca ~380kcal/13g prot, ' +
+          'arroz cocido ~130kcal/2.7g prot, pan ~8g prot, banana ~1g prot). Asumí porciones típicas si es ambiguo.',
         user: `Comida: "${text}"\n\nDividila en ingredientes con su cantidad en gramos.`
       })
       let parsed: any; try { parsed = JSON.parse(ptxt) } catch { parsed = null }
