@@ -59,6 +59,9 @@ export default function ComboDetail({ session, routineId, equipment, onBack, onD
     const d = draft[rex.id] || {}
     const w = parseFloat(d.weight)
     if (!w) { setErr('Poné el peso que levantaste'); return }
+    if ((logsByEx[rex.id] || []).some((l) => l.day === day)) {
+      setErr('Ya registraste este ejercicio en esa fecha'); return
+    }
     setBusy(true); setErr('')
     const { error } = await supabase.from('exercise_logs').insert({
       user_id: uid, routine_id: routineId, routine_exercise_id: rex.id,
@@ -68,6 +71,11 @@ export default function ComboDetail({ session, routineId, equipment, onBack, onD
     setBusy(false)
     if (error) { setErr(error.message); return }
     setDraft({ ...draft, [rex.id]: {} })
+    load()
+  }
+
+  async function undoLog(log) {
+    await supabase.from('exercise_logs').delete().eq('id', log.id)
     load()
   }
 
@@ -154,6 +162,7 @@ export default function ComboDetail({ session, routineId, equipment, onBack, onD
         const latest = logs.length ? logs[logs.length - 1].weight_kg : rex.start_weight_kg
         const delta = (latest - rex.start_weight_kg)
         const hint = overloadHint(rex, logs)
+        const todayLog = logs.find((l) => l.day === day)
         const d = draft[rex.id] || {}
         return (
           <div className="card exercise-card" key={rex.id}>
@@ -195,19 +204,27 @@ export default function ComboDetail({ session, routineId, equipment, onBack, onD
               </div>
             )}
 
-            <div className="row" style={{ marginTop: 10, alignItems: 'flex-end' }}>
-              <div style={{ flex: 2 }}>
-                <label style={{ margin: '0 0 4px' }}>Peso hoy (kg)</label>
-                <input type="number" inputMode="decimal" placeholder={`${latest}`}
-                  value={d.weight ?? ''} onChange={(e) => setDraft({ ...draft, [rex.id]: { ...d, weight: e.target.value } })} />
+            {todayLog ? (
+              <div className="logged-today">
+                <span>✓ Ya registraste el {dateLabel(day)}: <b>{todayLog.weight_kg} kg</b>{todayLog.reps ? ` × ${todayLog.reps} reps` : ''}</span>
+                <button className="ghost" style={{ flex: '0 0 auto', padding: '6px 12px' }}
+                  onClick={() => undoLog(todayLog)}>Borrar</button>
               </div>
-              <div style={{ flex: 1 }}>
-                <label style={{ margin: '0 0 4px' }}>Reps</label>
-                <input type="number" inputMode="numeric" placeholder="-"
-                  value={d.reps ?? ''} onChange={(e) => setDraft({ ...draft, [rex.id]: { ...d, reps: e.target.value } })} />
+            ) : (
+              <div className="row" style={{ marginTop: 10, alignItems: 'flex-end' }}>
+                <div style={{ flex: 2 }}>
+                  <label style={{ margin: '0 0 4px' }}>Peso hoy (kg)</label>
+                  <input type="number" inputMode="decimal" placeholder={`${latest}`}
+                    value={d.weight ?? ''} onChange={(e) => setDraft({ ...draft, [rex.id]: { ...d, weight: e.target.value } })} />
+                </div>
+                <div style={{ flex: 1 }}>
+                  <label style={{ margin: '0 0 4px' }}>Reps</label>
+                  <input type="number" inputMode="numeric" placeholder="-"
+                    value={d.reps ?? ''} onChange={(e) => setDraft({ ...draft, [rex.id]: { ...d, reps: e.target.value } })} />
+                </div>
+                <button style={{ flex: '0 0 auto' }} onClick={() => logToday(rex)} disabled={busy}>Registrar</button>
               </div>
-              <button style={{ flex: '0 0 auto' }} onClick={() => logToday(rex)} disabled={busy}>Registrar</button>
-            </div>
+            )}
 
             {logs.length > 1 && (
               <div className="muted" style={{ marginTop: 8 }}>

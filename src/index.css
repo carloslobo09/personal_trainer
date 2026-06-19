@@ -252,3 +252,10 @@ nav.tabs button.active { color: var(--accent); }
 /* ---- Variantes del aviso de sobrecarga ---- */
 .overload.reps { background: rgba(34,211,238,.10); border-color: var(--accent); color: var(--accent); }
 .overload.neutral { background: var(--bg); border-color: var(--line); color: var(--muted); font-weight: 500; }
+
+/* ---- Ejercicio ya registrado en el día ---- */
+.logged-today {
+  display: flex; align-items: center; justify-content: space-between; gap: 10px;
+  margin-top: 10px; background: rgba(74,222,128,.1); border: 1px solid var(--good);
+  color: var(--good); border-radius: 10px; padding: 10px; font-size: 14px;
+}
