@@ -188,18 +188,24 @@ Deno.serve(async (req) => {
       const schema = {
         type: 'object',
         properties: {
-          calories: { type: 'number', description: 'kcal totales' },
+          desglose: { type: 'string', description: 'una línea por alimento con su cantidad y kcal/proteína aprox (ej: "pan 30g ~80kcal/3g prot; queso untable 20g ~60kcal/2g prot")' },
+          calories: { type: 'number', description: 'kcal totales (coherente con el desglose)' },
           protein_g: { type: 'number' }, carbs_g: { type: 'number' }, fat_g: { type: 'number' },
           fiber_g: { type: 'number', description: 'gramos de fibra' },
           notes: { type: 'string', description: 'comentario breve, 1 frase' }
         },
-        required: ['calories', 'protein_g', 'carbs_g', 'fat_g', 'fiber_g', 'notes']
+        required: ['desglose', 'calories', 'protein_g', 'carbs_g', 'fat_g', 'fiber_g', 'notes']
       }
       const out = await callAI({
-        max_tokens: 400, schema,
-        system: 'Sos nutricionista. Estimás macros de comidas en español rioplatense, ' +
-          'números realistas para porciones típicas. Conciso.',
-        user: `Perfil:\n${perfil}\n\nComida: "${text}"\n\nEstimá calorías y macros.`
+        max_tokens: 700, schema,
+        system: 'Sos nutricionista experto. Estimás macros razonando ALIMENTO POR ALIMENTO con valores ' +
+          'estándar por 100g y la porción indicada; primero completás el desglose y después sumás los ' +
+          'totales coherentes con ese desglose. REGLAS: las fuentes ALTAS de proteína son carne, pescado, ' +
+          'huevo, lácteos duros y legumbres; el pan, las frutas, las verduras, el arroz y los quesos ' +
+          'untables/cremosos NO son altos en proteína (no la sobreestimes). Tené en cuenta la cocción y ' +
+          'si la carne viene con piel/hueso (el patamuslo/muslo de pollo con piel tiene bastante grasa). ' +
+          'Si una porción es ambigua, asumí una cantidad típica y aclarala en el desglose. Español rioplatense.',
+        user: `Perfil:\n${perfil}\n\nComida: "${text}"\n\nDesglosá cada alimento y estimá los totales.`
       })
       let parsed; try { parsed = JSON.parse(out) } catch { parsed = null }
       return json({ result: parsed, raw: out })

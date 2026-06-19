@@ -59,7 +59,7 @@ export default function Comida({ session }) {
         user_id: uid, day, raw_text: text.trim(),
         calories: r.calories ?? null, protein_g: r.protein_g ?? null,
         carbs_g: r.carbs_g ?? null, fat_g: r.fat_g ?? null, fiber_g: r.fiber_g ?? null,
-        ai_notes: r.notes ?? null
+        ai_notes: r.desglose || r.notes || null
       })
       if (error) throw error
       setText(''); setAdvice(''); await load()
