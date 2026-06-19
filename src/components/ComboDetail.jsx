@@ -2,21 +2,30 @@ import { useEffect, useState } from 'react'
 import { supabase } from '../lib/supabase'
 import { today, dateLabel } from '../lib/api'
 import { musclesEs } from '../lib/catalog'
-import { GOALS } from '../lib/goals'
+import { GOALS, GOAL_KEYS } from '../lib/goals'
 import ExerciseImage from './ExerciseImage'
 import CatalogPicker from './CatalogPicker'
 
-// Sugerencia de sobrecarga: si venís ≥3 registros con el mismo peso, proponé subir.
-function overloadHint(logs) {
-  if (!logs || logs.length < 3) return null
-  const latest = +logs[logs.length - 1].weight_kg
-  let count = 0
-  for (let i = logs.length - 1; i >= 0; i--) {
-    if (+logs[i].weight_kg === latest) count++; else break
+// tope del rango de reps: "10-15" -> 15, "12" -> 12
+function topReps(s) {
+  const nums = String(s || '').match(/\d+/g)
+  return nums ? Math.max(...nums.map(Number)) : null
+}
+
+// Doble progresión: si superás el tope de reps en el último registro, subí el peso;
+// si no, mantené el peso y sumá reps.
+function overloadHint(rex, logs) {
+  if (!logs || !logs.length) return null
+  const last = logs[logs.length - 1]
+  const weight = +last.weight_kg
+  const reps = last.reps
+  const top = topReps(rex.target_reps)
+  if (reps == null) return { type: 'noreps' }
+  if (top && reps >= top) {
+    const inc = Math.max(2.5, Math.round((weight * 0.05) / 2.5) * 2.5)
+    return { type: 'up', weight, reps, top, next: +(weight + inc).toFixed(1) }
   }
-  if (count < 3) return null
-  const inc = Math.max(2.5, Math.round((latest * 0.05) / 2.5) * 2.5)
-  return { count, latest, next: +(latest + inc).toFixed(1) }
+  return { type: 'reps', weight, reps, top }
 }
 
 export default function ComboDetail({ session, routineId, equipment, onBack, onDeleted }) {
@@ -74,6 +83,13 @@ export default function ComboDetail({ session, routineId, equipment, onBack, onD
     onDeleted()
   }
 
+  async function changeGoal(g) {
+    await supabase.from('routines').update({ goal: g }).eq('id', routineId)
+    await supabase.from('routine_exercises')
+      .update({ target_sets: GOALS[g].sets, target_reps: GOALS[g].reps }).eq('routine_id', routineId)
+    load()
+  }
+
   function onPicked(item) { setShowPicker(false); setPending(item); setPendWeight('') }
 
   async function confirmAdd() {
@@ -110,6 +126,18 @@ export default function ComboDetail({ session, routineId, equipment, onBack, onD
           </div>
           <button className="ghost" style={{ padding: '8px 12px' }} onClick={onBack}>← Volver</button>
         </div>
+
+        <label>Objetivo del combo (ajusta reps y series)</label>
+        <div className="chips">
+          {GOAL_KEYS.map((k) => (
+            <button key={k} className={`chip ${routine.goal === k ? 'on' : ''}`}
+              onClick={() => changeGoal(k)}>{GOALS[k].label}</button>
+          ))}
+        </div>
+        <p className="muted" style={{ marginTop: 6 }}>
+          {GOALS[routine.goal]?.sets || 4} series × {GOALS[routine.goal]?.reps || '10-15'} reps · descanso {GOALS[routine.goal]?.rest || '60s'}
+        </p>
+
         <label>Día del registro</label>
         <div className="row">
           <input type="date" value={day} max={today()}
@@ -125,7 +153,7 @@ export default function ComboDetail({ session, routineId, equipment, onBack, onD
         const logs = logsByEx[rex.id] || []
         const latest = logs.length ? logs[logs.length - 1].weight_kg : rex.start_weight_kg
         const delta = (latest - rex.start_weight_kg)
-        const hint = overloadHint(logs)
+        const hint = overloadHint(rex, logs)
         const d = draft[rex.id] || {}
         return (
           <div className="card exercise-card" key={rex.id}>
@@ -149,9 +177,21 @@ export default function ComboDetail({ session, routineId, equipment, onBack, onD
               </div>
             </div>
 
-            {hint && (
+            {hint && hint.type === 'up' && (
               <div className="overload">
-                💡 Llevás {hint.count} sesiones en {hint.latest} kg — toca subir: probá <b>{hint.next} kg</b>
+                💪 Hiciste {hint.reps} reps (tope {hint.top}) en {hint.weight} kg → la próxima subí a <b>{hint.next} kg</b>.
+                Las reps van a bajar y las recuperás de a poco.
+              </div>
+            )}
+            {hint && hint.type === 'reps' && (
+              <div className="overload reps">
+                📈 Vas {hint.reps}{hint.top ? `/${hint.top}` : ''} reps en {hint.weight} kg → mantené el peso y
+                sumá reps. Cuando llegues a {hint.top}, subís kg.
+              </div>
+            )}
+            {hint && hint.type === 'noreps' && (
+              <div className="overload neutral">
+                Registrá las <b>reps</b> al cargar el peso para que te diga si subir kg o reps.
               </div>
             )}
 

@@ -77,9 +77,9 @@ function candidatesBlock(cands: any[]) {
 
 function goalGuide(goal: string) {
   const g: Record<string, string> = {
-    definir: 'Objetivo DEFINIR / quemar grasa: 15-20 reps por serie, peso moderado-bajo, descanso corto (~30-45s).',
-    equilibrio: 'Objetivo EQUILIBRIO (músculo + algo de quema): 10-15 reps por serie, descanso medio (~60s).',
-    musculo: 'Objetivo MÚSCULO / fuerza: 6-10 reps por serie, peso alto, descanso largo (~90-120s).'
+    definir: 'Objetivo DEFINIR / quemar grasa: 3 series de 15-20 reps, peso moderado-bajo, descanso corto (~30-45s).',
+    equilibrio: 'Objetivo EQUILIBRIO (músculo + algo de quema): 4 series de 10-15 reps, descanso medio (~60s).',
+    musculo: 'Objetivo MÚSCULO / fuerza: 4 series de 6-10 reps, peso alto, descanso largo (~90-120s).'
   }
   return g[goal] || g.equilibrio
 }

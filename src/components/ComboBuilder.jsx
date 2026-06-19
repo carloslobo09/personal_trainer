@@ -3,7 +3,7 @@ import { supabase } from '../lib/supabase'
 import { ai, today } from '../lib/api'
 import { candidatesFor, getById, imageUrl, musclesEs } from '../lib/catalog'
 import { SPLITS, SPLIT_KEYS } from '../lib/splits'
-import { GOALS, GOAL_KEYS, goalReps } from '../lib/goals'
+import { GOALS, GOAL_KEYS, goalReps, goalSets } from '../lib/goals'
 import ExerciseImage from './ExerciseImage'
 import CatalogPicker from './CatalogPicker'
 
@@ -20,7 +20,7 @@ function fromCatalog(ej, goalKey) {
     primary_muscles: cat?.primary || [],
     image_url: cat ? imageUrl(cat) : null,
     description_es: ej.descripcion_es || '',
-    target_sets: ej.series || '4',
+    target_sets: ej.series || goalSets(goalKey),
     target_reps: ej.reps || goalReps(goalKey),
     start_weight: ''
   }

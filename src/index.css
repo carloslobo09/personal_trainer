@@ -248,3 +248,7 @@ nav.tabs button.active { color: var(--accent); }
 /* ---- Plan rotativo: hoy toca ---- */
 .today-box { background: var(--bg); border-left: 3px solid var(--accent); border-radius: 8px; padding: 12px; margin-top: 10px; }
 .today-name { font-size: 20px; font-weight: 700; color: var(--accent); margin: 2px 0; }
+
+/* ---- Variantes del aviso de sobrecarga ---- */
+.overload.reps { background: rgba(34,211,238,.10); border-color: var(--accent); color: var(--accent); }
+.overload.neutral { background: var(--bg); border-color: var(--line); color: var(--muted); font-weight: 500; }
