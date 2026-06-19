@@ -61,9 +61,14 @@ async function callAI(opts: { system: string; user: string; max_tokens?: number;
 
 function profileBlock(p: any) {
   if (!p) return 'Sin datos de perfil.'
+  const goalMap: Record<string, string> = {
+    definir: 'definir (quemar grasa)',
+    equilibrio: 'equilibrio (músculo + algo de grasa)',
+    musculo: 'músculo (hipertrofia)'
+  }
   return [
     `Altura: ${p.height_cm ?? '?'} cm`, `Peso: ${p.weight_kg ?? '?'} kg`,
-    `Creatina diaria: ${p.creatine_g ?? 0} g`, `Objetivo: ${p.goal ?? '-'}`,
+    `Objetivo: ${goalMap[p.training_goal] || p.training_goal || '-'}`,
     `Actividad: ${p.activity ?? '-'}`,
     p.body_composition ? `Composición/complexión: ${p.body_composition}` : '',
     p.notes ? `Notas: ${p.notes}` : ''

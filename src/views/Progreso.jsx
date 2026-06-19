@@ -119,6 +119,8 @@ export default function Progreso({ session, onWeighIn }) {
     const { error } = await supabase.from('weight_logs')
       .upsert({ user_id: uid, day: today(), weight_kg: v }, { onConflict: 'user_id,day' })
     if (error) { setErr(error.message); return }
+    // mantener el peso del perfil sincronizado con el último registro
+    await supabase.from('profiles').update({ weight_kg: v }).eq('id', uid)
     setWeight(''); await load()
     onWeighIn?.()        // limpia el banner de "toca pesarte"
     fetchStatus()        // consejo de la IA sobre tu evolución

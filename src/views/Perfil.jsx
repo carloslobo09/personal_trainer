@@ -21,8 +21,8 @@ export default function Perfil({ session }) {
   async function load() {
     const { data } = await supabase.from('profiles').select('*').eq('id', uid).single()
     setP(data || {
-      id: uid, height_cm: 190, weight_kg: 87, creatine_g: 5,
-      goal: 'crecimiento muscular equilibrado', activity: 'entreno 4-5 dias por semana',
+      id: uid, height_cm: 190, weight_kg: 87,
+      activity: 'entreno 4-5 dias por semana',
       equipment: [], training_goal: 'equilibrio', body_composition: '', notes: ''
     })
   }
@@ -55,8 +55,8 @@ export default function Perfil({ session }) {
   async function save() {
     setErr('')
     const { error } = await supabase.from('profiles').upsert({
-      id: uid, height_cm: p.height_cm, weight_kg: p.weight_kg, creatine_g: p.creatine_g,
-      goal: p.goal, activity: p.activity, equipment: p.equipment || [],
+      id: uid, height_cm: p.height_cm, weight_kg: p.weight_kg,
+      activity: p.activity, equipment: p.equipment || [],
       training_goal: p.training_goal || 'equilibrio',
       body_composition: p.body_composition, notes: p.notes, updated_at: new Date().toISOString()
     })
@@ -91,10 +91,10 @@ export default function Perfil({ session }) {
             <input type="number" value={p.weight_kg ?? ''} onChange={(e) => set('weight_kg', e.target.value)} />
           </div>
         </div>
-        <label>Creatina por día (g)</label>
-        <input type="number" value={p.creatine_g ?? ''} onChange={(e) => set('creatine_g', e.target.value)} />
-        <label>Objetivo</label>
-        <input value={p.goal ?? ''} onChange={(e) => set('goal', e.target.value)} />
+        <p className="muted" style={{ marginTop: 6 }}>
+          Tu peso se actualiza solo cuando lo registrás en <b>Progreso</b>. La creatina ahora va en
+          <b> Suplementos</b>, y tu objetivo en <b>Objetivo por defecto</b> (abajo).
+        </p>
         <label>Actividad / frecuencia</label>
         <input value={p.activity ?? ''} onChange={(e) => set('activity', e.target.value)} />
         <label>Composición / complexión</label>
