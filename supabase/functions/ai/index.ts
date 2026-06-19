@@ -12,6 +12,10 @@ const GROQ_API_KEY = Deno.env.get('GROQ_API_KEY')!
 const MODEL = 'llama-3.3-70b-versatile'
 const GROQ_URL = 'https://api.groq.com/openai/v1/chat/completions'
 
+// Regla común: respuestas cortas y al grano.
+const CONCISE = ' Respondé MUY conciso: máximo 4-5 frases cortas o bullets, sin vueltas ni relleno. ' +
+  'Dejá claro qué recomendás, en base a qué (1-2 datos concretos) y cómo viene. Nada de introducciones largas.'
+
 const cors = {
   'Access-Control-Allow-Origin': '*',
   'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type',
@@ -231,15 +235,14 @@ Deno.serve(async (req) => {
         `- ${f.raw_text} (${Math.round(f.calories || 0)} kcal, ${Math.round(f.protein_g || 0)}g prot)`)
         .join('\n') || '(nada registrado)'
       const out = await callAI({
-        max_tokens: 800,
+        max_tokens: 550,
         system: 'Sos entrenador personal y nutricionista, cercano y directo (español rioplatense). ' +
-          'Consejos breves y accionables. Recomendás gramos de proteína diaria según peso y si entrenó. ' +
+          'Recomendás gramos de proteína diaria según peso y si entrenó. ' +
           'Tené en cuenta el cardio/calorías quemadas, la fibra y los suplementos (avisá si falta tomar ' +
-          'alguno o si conviene sumar alguno para el objetivo). IMPORTANTE: si algún alimento del día ' +
+          'alguno o si conviene sumar alguno para el objetivo). Si algún alimento del día ' +
           'aporta el mismo nutriente que un suplemento (pescado graso/salmón/sardinas/atún = omega-3; ' +
           'frutos secos, semillas, legumbres y verduras de hoja = magnesio; carnes/huevos = creatina/B12), ' +
-          'avisá que ese día puede tomar MENOS pastillas de ese suplemento (decí cuántas). ' +
-          'Pocos párrafos o bullets, sin tablas largas.',
+          'avisá que ese día puede tomar MENOS pastillas de ese suplemento (decí cuántas).' + CONCISE,
         user: `Perfil:\n${perfil}\n\n¿Entrenó gym hoy? ${entreno}\n` +
           `Cardio/deporte de hoy:\n${actLista}\nCalorías quemadas aprox: ${Math.round(burned)}.\n\n` +
           `Comida de hoy (${day}):\n${lista}\n\nTotales comida: ${Math.round(totalC)} kcal, ` +
@@ -358,10 +361,9 @@ Deno.serve(async (req) => {
     if (action === 'recommend_split') {
       const balance = await trainingBalance(supabase)
       const out = await callAI({
-        max_tokens: 800,
-        system: 'Sos entrenador y tutor. Explicás de forma breve y clara (español rioplatense) los ' +
-          'métodos de entrenamiento y recomendás UNO según el perfil. Sé educativo pero conciso: ' +
-          'bullets cortos, sin tablas largas.',
+        max_tokens: 600,
+        system: 'Sos entrenador y tutor. Explicás 1 frase por método de entrenamiento y recomendás UNO ' +
+          'según el perfil, justificando en 1-2 frases (español rioplatense). Bullets cortos, sin relleno.' + CONCISE,
         user: `Perfil:\n${perfil}\n\n${balance}\n\n` +
           `Explicame en 1 frase cada método: Full Body, Upper/Lower, Push/Pull/Legs (PPL) y Arnold Split. ` +
           `Después recomendame EL que mejor me va según mi frecuencia de entrenamiento, mi objetivo y mi ` +
@@ -385,12 +387,11 @@ Deno.serve(async (req) => {
         return `${label}: ${last} cm${vals.length > 1 ? ` (${d >= 0 ? '+' : ''}${d} desde inicio)` : ''}`
       }).filter(Boolean).join(' | ') || 'sin medidas registradas'
       const out = await callAI({
-        max_tokens: 500,
-        system: 'Sos entrenador. Evaluás la evolución del usuario según su objetivo y composición. Breve, ' +
-          'honesto y motivador (español rioplatense). En recomposición la balanza puede no moverse aunque ' +
+        max_tokens: 450,
+        system: 'Sos entrenador. Evaluás la evolución del usuario según su objetivo y composición. ' +
+          'Honesto y motivador (español rioplatense). En recomposición la balanza puede no moverse aunque ' +
           'haya progreso: si la CINTURA baja y el peso se mantiene (o suben brazo/pecho/pierna), está ' +
-          'ganando músculo y perdiendo grasa = va bien. Priorizá las medidas sobre el número de la balanza. ' +
-          '2-4 frases, sin tablas.',
+          'ganando músculo y perdiendo grasa = va bien. Priorizá las medidas sobre el número de la balanza.' + CONCISE,
         user: `Perfil:\n${perfil}\n\nHistorial de peso (más reciente primero):\n${hist}\n\n` +
           `Medidas corporales:\n${measLine}\n\n` +
           `Decime cómo voy: tendencia de peso y medidas, si está alineado con mi objetivo, y un consejo corto.`
@@ -444,10 +445,10 @@ Deno.serve(async (req) => {
       const balance = await trainingBalance(supabase)
       const nut = await nutritionWeightContext(supabase)
       const out = await callAI({
-        max_tokens: 900,
+        max_tokens: 550,
         system: 'Sos el entrenador y nutricionista del usuario. Conocés su perfil, su historial de ' +
           'entrenamiento y su nutrición reciente. Usá ese contexto para responder concreto y ' +
-          'accionable, en español rioplatense.',
+          'accionable, en español rioplatense.' + CONCISE,
         user: `Perfil:\n${perfil}\n\nContexto reciente (de su base de datos):\n${balance}\n${nut}\n\n` +
           `Pregunta: ${q}`
       })
