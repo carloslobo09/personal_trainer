@@ -269,7 +269,7 @@ Deno.serve(async (req) => {
               if (est.kcal > 0 && (ratio > 2.5 || ratio < 0.4)) {
                 per100 = est; src = 'estimado'              // match dudoso (kcal muy lejos de lo estimado)
               } else {
-                const fib = (u.fib > est.fib * 3 + 5) ? est.fib : u.fib  // fibra disparatada -> usar estimada
+                const fib = (u.fib > est.fib * 2 + 3) ? est.fib : u.fib  // fibra muy por encima de lo estimado -> usar estimada
                 per100 = { kcal: u.kcal, prot: u.prot, carb: u.carb, fat: u.fat, fib }
                 src = 'USDA'
               }
