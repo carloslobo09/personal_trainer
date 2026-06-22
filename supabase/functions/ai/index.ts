@@ -45,12 +45,12 @@ function schemaHint(schema: any) {
     typeHint(schema)
 }
 
-async function callAI(opts: { system: string; user: string; max_tokens?: number; schema?: any }) {
+async function callAI(opts: { system: string; user: string; max_tokens?: number; schema?: any; temperature?: number }) {
   const messages = [
     { role: 'system', content: opts.system },
     { role: 'user', content: opts.schema ? `${opts.user}\n\n${schemaHint(opts.schema)}` : opts.user }
   ]
-  const body: any = { model: MODEL, max_tokens: opts.max_tokens ?? 1024, temperature: 0.7, messages }
+  const body: any = { model: MODEL, max_tokens: opts.max_tokens ?? 1024, temperature: opts.temperature ?? 0.7, messages }
   if (opts.schema) body.response_format = { type: 'json_object' }
 
   const res = await fetch(GROQ_URL, {
@@ -232,7 +232,7 @@ Deno.serve(async (req) => {
         required: ['items']
       }
       const ptxt = await callAI({
-        max_tokens: 900, schema: parseSchema,
+        max_tokens: 900, schema: parseSchema, temperature: 0.2,
         system: 'Sos nutricionista. El usuario es de Argentina (Salta): interpretá los términos locales ' +
           '(zapallo=squash, choclo=corn, palta=avocado, morrón=bell pepper, batata=sweet potato, ' +
           'panceta=bacon, queso cremoso=soft white cheese, frutilla=strawberry) y DESCOMPONÉ los platos ' +
