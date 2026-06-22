@@ -23,6 +23,12 @@ export async function ai(action, payload = {}) {
 
 // Fecha de HOY en horario de Argentina (YYYY-MM-DD), no UTC.
 const AR_TZ = 'America/Argentina/Buenos_Aires'
+// Parsea números aceptando coma o punto como separador decimal (ej: "87,9" -> 87.9)
+export function parseNum(v) {
+  const n = parseFloat(String(v ?? '').replace(',', '.').trim())
+  return isNaN(n) ? null : n
+}
+
 export const today = () =>
   new Intl.DateTimeFormat('en-CA', {
     timeZone: AR_TZ, year: 'numeric', month: '2-digit', day: '2-digit'

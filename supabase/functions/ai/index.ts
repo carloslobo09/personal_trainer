@@ -238,7 +238,8 @@ Deno.serve(async (req) => {
           'panceta=bacon, queso cremoso=soft white cheese, frutilla=strawberry) y DESCOMPONÉ los platos ' +
           'típicos en sus ingredientes para buscarlos en USDA (empanada=masa+relleno de carne; ' +
           'milanesa=carne+pan rallado+huevo+aceite; humita=choclo+cebolla+queso; tamal=maíz+carne; ' +
-          'locro=maíz+zapallo+carne+porotos; provoleta=queso provolone). ' +
+          'locro=maíz+zapallo+carne+porotos; provoleta=queso provolone). Al descomponer un plato listá ' +
+          'SOLO sus ingredientes (no agregues también el plato entero con 0g). ' +
           'Tamaños típicos por unidad: 1 empanada ≈ 90g (≈45g masa + 45g relleno); 1 milanesa ≈ 130g; ' +
           '1 medialuna ≈ 40g; 1 porción de pizza ≈ 120g; 1 rodaja de pan ≈ 30g. ' +
           'Dividís la comida en ingredientes individuales y SEPARÁS los platos ' +
@@ -258,15 +259,28 @@ Deno.serve(async (req) => {
 
       // 2) Para cada ingrediente: macros reales de USDA (o el respaldo de la IA)
       const enriched = await Promise.all(items.map(async (it: any) => {
-        let per100: any = null, src = 'estimado'
+        const est = { kcal: +it.est_kcal || 0, prot: +it.est_protein || 0, carb: +it.est_carbs || 0, fat: +it.est_fat || 0, fib: +it.est_fiber || 0 }
+        let per100: any = est, src = 'estimado'
         if (USDA && it.query) {
-          try { const u = await usdaLookup(it.query, USDA); if (u) { per100 = u; src = 'USDA' } } catch { /* sigue con respaldo */ }
+          try {
+            const u = await usdaLookup(it.query, USDA)
+            if (u) {
+              const ratio = est.kcal > 0 ? u.kcal / est.kcal : 1
+              if (est.kcal > 0 && (ratio > 2.5 || ratio < 0.4)) {
+                per100 = est; src = 'estimado'              // match dudoso (kcal muy lejos de lo estimado)
+              } else {
+                const fib = (u.fib > est.fib * 3 + 5) ? est.fib : u.fib  // fibra disparatada -> usar estimada
+                per100 = { kcal: u.kcal, prot: u.prot, carb: u.carb, fat: u.fat, fib }
+                src = 'USDA'
+              }
+            }
+          } catch { /* sigue con la estimación */ }
         }
-        if (!per100) per100 = { kcal: +it.est_kcal || 0, prot: +it.est_protein || 0, carb: +it.est_carbs || 0, fat: +it.est_fat || 0, fib: +it.est_fiber || 0 }
         const f = (+it.grams || 0) / 100
+        const fibPer100 = Math.min(per100.fib, per100.carb)  // la fibra no puede superar los carbohidratos
         return {
           original: it.original, grams: +it.grams || 0, src,
-          cal: per100.kcal * f, prot: per100.prot * f, carb: per100.carb * f, fat: per100.fat * f, fib: per100.fib * f
+          cal: per100.kcal * f, prot: per100.prot * f, carb: per100.carb * f, fat: per100.fat * f, fib: fibPer100 * f
         }
       }))
 

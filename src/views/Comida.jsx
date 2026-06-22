@@ -1,6 +1,6 @@
 import { useEffect, useState } from 'react'
 import { supabase } from '../lib/supabase'
-import { ai, today, dateLabel } from '../lib/api'
+import { ai, today, dateLabel, parseNum } from '../lib/api'
 
 const EDIT_FIELDS = [
   { k: 'calories', l: 'Calorías' }, { k: 'protein_g', l: 'Proteína' },
@@ -87,7 +87,7 @@ export default function Comida({ session }) {
   }
   async function saveEdit() {
     const upd = {}
-    EDIT_FIELDS.forEach(({ k }) => { upd[k] = (editVals[k] === '' || editVals[k] == null) ? null : parseFloat(editVals[k]) })
+    EDIT_FIELDS.forEach(({ k }) => { upd[k] = parseNum(editVals[k]) })
     const { error } = await supabase.from('food_logs').update(upd).eq('id', editId)
     if (error) { setErr(error.message); return }
     setEditId(null); load()
@@ -220,7 +220,7 @@ export default function Comida({ session }) {
                     {EDIT_FIELDS.map(({ k, l }) => (
                       <div key={k}>
                         <label style={{ margin: '0 0 2px' }}>{l}</label>
-                        <input type="number" inputMode="decimal" value={editVals[k] ?? ''}
+                        <input type="text" inputMode="decimal" value={editVals[k] ?? ''}
                           onChange={(e) => setEditVals({ ...editVals, [k]: e.target.value })} />
                       </div>
                     ))}

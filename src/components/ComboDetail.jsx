@@ -1,6 +1,6 @@
 import { useEffect, useState } from 'react'
 import { supabase } from '../lib/supabase'
-import { today, dateLabel } from '../lib/api'
+import { today, dateLabel, parseNum } from '../lib/api'
 import { musclesEs } from '../lib/catalog'
 import { GOALS, GOAL_KEYS } from '../lib/goals'
 import ExerciseImage from './ExerciseImage'
@@ -59,7 +59,7 @@ export default function ComboDetail({ session, routineId, equipment, onBack, onD
 
   async function logToday(rex) {
     const d = draft[rex.id] || {}
-    const w = parseFloat(d.weight)
+    const w = parseNum(d.weight)
     if (!w) { setErr('Poné el peso que levantaste'); return }
     if ((logsByEx[rex.id] || []).some((l) => l.day === day)) {
       setErr('Ya registraste este ejercicio en esa fecha'); return
@@ -86,7 +86,7 @@ export default function ComboDetail({ session, routineId, equipment, onBack, onD
     setEditVals({ start: rex.start_weight_kg ?? '', sets: rex.target_sets ?? '', reps: rex.target_reps ?? '' })
   }
   async function saveEdit(rex) {
-    const w = parseFloat(editVals.start)
+    const w = parseNum(editVals.start)
     if (!w) { setErr('Poné el peso inicial'); return }
     const upd = { start_weight_kg: w }
     if (editVals.sets !== '') upd.target_sets = String(editVals.sets)
@@ -121,7 +121,7 @@ export default function ComboDetail({ session, routineId, equipment, onBack, onD
   function onPicked(item) { setShowPicker(false); setPending(item); setPendWeight('') }
 
   async function confirmAdd() {
-    const w = parseFloat(pendWeight)
+    const w = parseNum(pendWeight)
     if (!w) { setErr('El peso inicial es obligatorio'); return }
     setBusy(true); setErr('')
     const pos = exs.length
@@ -204,7 +204,7 @@ export default function ComboDetail({ session, routineId, equipment, onBack, onD
                 <div className="row">
                   <div>
                     <label style={{ margin: '0 0 2px' }}>Peso inicial (kg)</label>
-                    <input type="number" inputMode="decimal" value={editVals.start ?? ''}
+                    <input type="text" inputMode="decimal" value={editVals.start ?? ''}
                       onChange={(e) => setEditVals({ ...editVals, start: e.target.value })} />
                   </div>
                   <div>
@@ -262,7 +262,7 @@ export default function ComboDetail({ session, routineId, equipment, onBack, onD
               <div className="row" style={{ marginTop: 10, alignItems: 'flex-end' }}>
                 <div style={{ flex: 2 }}>
                   <label style={{ margin: '0 0 4px' }}>Peso hoy (kg)</label>
-                  <input type="number" inputMode="decimal" placeholder={`${latest}`}
+                  <input type="text" inputMode="decimal" placeholder={`${latest}`}
                     value={d.weight ?? ''} onChange={(e) => setDraft({ ...draft, [rex.id]: { ...d, weight: e.target.value } })} />
                 </div>
                 <div style={{ flex: 1 }}>
@@ -292,7 +292,7 @@ export default function ComboDetail({ session, routineId, equipment, onBack, onD
             <div className="modal-head"><h2>{pending.name}</h2><button className="x" onClick={() => setPending(null)}>✕</button></div>
             {pending.description_es && <p className="muted">{pending.description_es}</p>}
             <label>Peso inicial (kg) — obligatorio</label>
-            <input type="number" inputMode="decimal" autoFocus
+            <input type="text" inputMode="decimal" autoFocus
               value={pendWeight} onChange={(e) => setPendWeight(e.target.value)} />
             <button className="full" style={{ marginTop: 12 }} onClick={confirmAdd} disabled={busy}>
               {busy ? <span className="spinner" /> : 'Agregar al combo'}

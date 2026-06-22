@@ -1,6 +1,6 @@
 import { useState } from 'react'
 import { supabase } from '../lib/supabase'
-import { ai, today } from '../lib/api'
+import { ai, today, parseNum } from '../lib/api'
 import { candidatesFor, getById, imageUrl, musclesEs } from '../lib/catalog'
 import { SPLITS, SPLIT_KEYS } from '../lib/splits'
 import { GOALS, GOAL_KEYS, goalReps, goalSets } from '../lib/goals'
@@ -125,7 +125,7 @@ export default function ComboBuilder({ session, equipment, defaultGoal = 'equili
     setItems([...items, { key: newKey(), start_weight: '', ...picked }])
   }
 
-  const missing = items.some((i) => i.start_weight === '' || isNaN(parseFloat(i.start_weight)))
+  const missing = items.some((i) => parseNum(i.start_weight) == null)
   const canSave = items.length > 0 && !missing && name.trim()
 
   async function save() {
@@ -140,7 +140,7 @@ export default function ComboBuilder({ session, equipment, defaultGoal = 'equili
         name: it.name, equipment: it.equipment, primary_muscles: it.primary_muscles || [],
         image_url: it.image_url, description_es: it.description_es,
         target_sets: it.target_sets, target_reps: it.target_reps,
-        start_weight_kg: parseFloat(it.start_weight), position: i
+        start_weight_kg: parseNum(it.start_weight), position: i
       }))
       const { data: rex, error: e2 } = await supabase.from('routine_exercises').insert(rows).select()
       if (e2) throw e2
@@ -249,7 +249,7 @@ export default function ComboBuilder({ session, equipment, defaultGoal = 'equili
           <div className="row" style={{ marginTop: 10, alignItems: 'flex-end' }}>
             <div style={{ flex: 2 }}>
               <label style={{ margin: '0 0 4px' }}>Peso inicial (kg) *</label>
-              <input type="number" inputMode="decimal" placeholder="Ej: 20"
+              <input type="text" inputMode="decimal" placeholder="Ej: 20"
                 value={it.start_weight} onChange={(e) => setWeight(it.key, e.target.value)} />
             </div>
             <button className="ghost" style={{ flex: 1 }} onClick={() => swap(it)} disabled={swapping}>

@@ -1,6 +1,6 @@
 import { useEffect, useState } from 'react'
 import { supabase } from '../lib/supabase'
-import { ai, today, dateLabel } from '../lib/api'
+import { ai, today, dateLabel, parseNum } from '../lib/api'
 
 function daysAgo(n) {
   const d = new Date(); d.setDate(d.getDate() - n)
@@ -96,7 +96,7 @@ export default function Progreso({ session, onWeighIn }) {
   async function saveMeas() {
     setErr(''); setMeasSaved(false)
     const row = { user_id: uid, day: today() }
-    MEAS_FIELDS.forEach(({ k }) => { row[k] = meas[k] !== '' && meas[k] != null ? parseFloat(meas[k]) : null })
+    MEAS_FIELDS.forEach(({ k }) => { row[k] = parseNum(meas[k]) })
     const { error } = await supabase.from('measurements').upsert(row, { onConflict: 'user_id,day' })
     if (error) { setErr(error.message); return }
     setMeasSaved(true); load()
@@ -113,7 +113,7 @@ export default function Progreso({ session, onWeighIn }) {
   useEffect(() => { load() }, [])
 
   async function addWeight() {
-    const v = parseFloat(weight)
+    const v = parseNum(weight)
     if (!v) return
     setErr('')
     const { error } = await supabase.from('weight_logs')
@@ -156,7 +156,7 @@ export default function Progreso({ session, onWeighIn }) {
       <div className="card">
         <h2>Peso corporal</h2>
         <div className="row">
-          <input type="number" inputMode="decimal" placeholder="Ej: 87.5"
+          <input type="text" inputMode="decimal" placeholder="Ej: 87,9"
             value={weight} onChange={(e) => setWeight(e.target.value)} />
           <button style={{ flex: '0 0 auto' }} onClick={addWeight}>Registrar hoy</button>
         </div>
@@ -183,7 +183,7 @@ export default function Progreso({ session, onWeighIn }) {
           {MEAS_FIELDS.map(({ k, label }) => (
             <div key={k} style={{ flex: '1 1 45%' }}>
               <label>{label}</label>
-              <input type="number" inputMode="decimal" placeholder="—"
+              <input type="text" inputMode="decimal" placeholder="—"
                 value={meas[k] ?? ''}
                 onChange={(e) => { setMeas({ ...meas, [k]: e.target.value }); setMeasSaved(false) }} />
             </div>
