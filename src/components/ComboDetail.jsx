@@ -143,6 +143,11 @@ export default function ComboDetail({ session, routineId, equipment, onBack, onD
 
   if (!routine) return <span className="spinner" />
 
+  const perSession = GOALS[routine.goal]?.perSession || '5-7'
+  const lowTarget = parseInt(String(perSession).split('-')[0], 10) || 5
+  const doneToday = exs.filter((rex) => (logsByEx[rex.id] || []).some((l) => l.day === day)).length
+  const remaining = Math.max(0, lowTarget - doneToday)
+
   return (
     <>
       <div className="card">
@@ -165,11 +170,9 @@ export default function ComboDetail({ session, routineId, equipment, onBack, onD
         <p className="muted" style={{ marginTop: 6 }}>
           {GOALS[routine.goal]?.sets || 4} series × {GOALS[routine.goal]?.reps || '10-15'} reps · descanso {GOALS[routine.goal]?.rest || '60s'}
         </p>
-        <div className="session-tip">
-          🎯 Hacé <b>~{GOALS[routine.goal]?.perSession || '5-7'} ejercicios</b> por sesión
-          {GOALS[routine.goal]?.sessionNote ? ` (${GOALS[routine.goal].sessionNote})` : ''}.
-          {exs.length > 0 && <> Tenés <b>{exs.length}</b> cargados → andá <b>alternando</b>, no hace falta hacerlos todos.</>}
-        </div>
+        <p className="muted" style={{ marginTop: 4 }}>
+          {GOALS[routine.goal]?.sessionNote ? `${GOALS[routine.goal].sessionNote}.` : ''} Andá <b>alternando</b> ejercicios entre sesiones.
+        </p>
 
         <label>Día del registro</label>
         <div className="row">
@@ -290,6 +293,17 @@ export default function ComboDetail({ session, routineId, equipment, onBack, onD
 
       <button className="ghost full" onClick={() => setShowPicker(true)}>＋ Agregar ejercicio al combo</button>
       <button className="danger full" onClick={deleteRoutine}>🗑 Borrar combo</button>
+      <div style={{ height: 54 }} />
+
+      <div className="session-bar">
+        <span>🎯 {GOALS[routine.goal]?.short || 'Objetivo'} · ~{perSession}/sesión</span>
+        <span>
+          Hechos: <b>{doneToday}</b> ·{' '}
+          {remaining > 0
+            ? <>faltan ~<b>{remaining}</b></>
+            : <b style={{ color: 'var(--good)' }}>✓ objetivo</b>}
+        </span>
+      </div>
 
       {pending && (
         <div className="modal-bg" onClick={() => setPending(null)}>
