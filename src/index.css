@@ -263,3 +263,10 @@ nav.tabs button.active { color: var(--accent); }
 /* ---- Edición manual de macros ---- */
 .edit-macros { background: var(--bg); border: 1px solid var(--line); border-radius: 12px; padding: 12px; margin: 6px 0 10px; }
 .macro-grid { display: grid; grid-template-columns: repeat(3, 1fr); gap: 8px; }
+
+/* ---- Recordatorio de ejercicios por sesión ---- */
+.session-tip {
+  margin-top: 10px; padding: 10px 12px; font-size: 13.5px; line-height: 1.45;
+  background: rgba(34,211,238,.10); border: 1px solid var(--line);
+  border-left: 3px solid var(--accent); border-radius: 10px; color: var(--text);
+}

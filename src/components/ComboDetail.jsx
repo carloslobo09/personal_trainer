@@ -165,6 +165,11 @@ export default function ComboDetail({ session, routineId, equipment, onBack, onD
         <p className="muted" style={{ marginTop: 6 }}>
           {GOALS[routine.goal]?.sets || 4} series × {GOALS[routine.goal]?.reps || '10-15'} reps · descanso {GOALS[routine.goal]?.rest || '60s'}
         </p>
+        <div className="session-tip">
+          🎯 Hacé <b>~{GOALS[routine.goal]?.perSession || '5-7'} ejercicios</b> por sesión
+          {GOALS[routine.goal]?.sessionNote ? ` (${GOALS[routine.goal].sessionNote})` : ''}.
+          {exs.length > 0 && <> Tenés <b>{exs.length}</b> cargados → andá <b>alternando</b>, no hace falta hacerlos todos.</>}
+        </div>
 
         <label>Día del registro</label>
         <div className="row">

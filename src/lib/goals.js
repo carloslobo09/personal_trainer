@@ -3,14 +3,17 @@
 export const GOALS = {
   definir: {
     label: '🔥 Definir', short: 'Definir', reps: '15-20', sets: '3', rest: '30-45s',
+    perSession: '6-8', sessionNote: 'descanso corto, podés meter más ejercicios (más densidad y quema)',
     desc: 'Quemar grasa: reps altas, peso moderado-bajo, descanso corto.'
   },
   equilibrio: {
     label: '⚖️ Equilibrio', short: 'Equilibrio', reps: '10-15', sets: '4', rest: '60s',
+    perSession: '5-7', sessionNote: 'volumen moderado',
     desc: 'Músculo + algo de quema: reps medias, descanso medio.'
   },
   musculo: {
     label: '💪 Músculo', short: 'Músculo', reps: '6-10', sets: '4', rest: '90-120s',
+    perSession: '5-6', sessionNote: 'menos ejercicios pero más series y peso, con descanso largo',
     desc: 'Hipertrofia/fuerza: reps bajas, peso alto, descanso largo.'
   }
 }
@@ -20,3 +23,4 @@ export const goalLabel = (k) => GOALS[k]?.label || k
 export const goalShort = (k) => GOALS[k]?.short || k
 export const goalReps = (k) => GOALS[k]?.reps || '10-15'
 export const goalSets = (k) => GOALS[k]?.sets || '4'
+export const goalPerSession = (k) => GOALS[k]?.perSession || '5-7'
