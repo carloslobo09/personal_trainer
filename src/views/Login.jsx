@@ -4,7 +4,6 @@ import { supabase } from '../lib/supabase'
 export default function Login() {
   const [email, setEmail] = useState('')
   const [password, setPassword] = useState('')
-  const [mode, setMode] = useState('login') // 'login' | 'signup'
   const [msg, setMsg] = useState('')
   const [busy, setBusy] = useState(false)
 
@@ -12,14 +11,8 @@ export default function Login() {
     e.preventDefault()
     setBusy(true); setMsg('')
     try {
-      if (mode === 'signup') {
-        const { error } = await supabase.auth.signUp({ email, password })
-        if (error) throw error
-        setMsg('Cuenta creada. Si pide confirmar email, revisá tu correo. Si no, ya podés entrar.')
-      } else {
-        const { error } = await supabase.auth.signInWithPassword({ email, password })
-        if (error) throw error
-      }
+      const { error } = await supabase.auth.signInWithPassword({ email, password })
+      if (error) throw error
     } catch (err) {
       setMsg('⚠️ ' + (err.message || 'Error'))
     } finally {
@@ -40,11 +33,7 @@ export default function Login() {
         <input type="password" value={password} autoComplete="current-password"
           onChange={(e) => setPassword(e.target.value)} required minLength={6} />
         <button className="full" style={{ marginTop: 16 }} disabled={busy}>
-          {busy ? <span className="spinner" /> : (mode === 'login' ? 'Entrar' : 'Crear cuenta')}
-        </button>
-        <button type="button" className="ghost full" style={{ marginTop: 10 }}
-          onClick={() => { setMode(mode === 'login' ? 'signup' : 'login'); setMsg('') }}>
-          {mode === 'login' ? '¿No tenés cuenta? Crear una' : 'Ya tengo cuenta'}
+          {busy ? <span className="spinner" /> : 'Entrar'}
         </button>
         {msg && <p className="muted" style={{ marginTop: 12 }}>{msg}</p>}
       </form>
