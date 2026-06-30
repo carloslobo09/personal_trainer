@@ -1,8 +1,8 @@
 import { useEffect, useState } from 'react'
 import { supabase } from '../lib/supabase'
 import { today, dateLabel, parseNum } from '../lib/api'
-import { musclesEs } from '../lib/catalog'
-import { GOALS, GOAL_KEYS } from '../lib/goals'
+import { musclesEs, getById } from '../lib/catalog'
+import { GOALS, GOAL_KEYS, goalRepsFor } from '../lib/goals'
 import ExerciseImage from './ExerciseImage'
 import CatalogPicker from './CatalogPicker'
 
@@ -113,8 +113,13 @@ export default function ComboDetail({ session, routineId, equipment, onBack, onD
 
   async function changeGoal(g) {
     await supabase.from('routines').update({ goal: g }).eq('id', routineId)
-    await supabase.from('routine_exercises')
-      .update({ target_sets: GOALS[g].sets, target_reps: GOALS[g].reps }).eq('routine_id', routineId)
+    // reps según el TIPO de cada ejercicio: compuestos pesados, aislaciones/abdominales más altas
+    for (const rex of exs) {
+      const cat = getById(rex.catalog_id)
+      const reps = goalRepsFor(g, { mechanic: cat?.mechanic, muscles: rex.primary_muscles })
+      await supabase.from('routine_exercises')
+        .update({ target_sets: GOALS[g].sets, target_reps: reps }).eq('id', rex.id)
+    }
     load()
   }
 
