@@ -36,6 +36,9 @@ export default function Comida({ session }) {
   const [infoId, setInfoId] = useState(null)
   const [editId, setEditId] = useState(null)
   const [editVals, setEditVals] = useState({})
+  const [quickFoods, setQuickFoods] = useState([])
+  const [qfForm, setQfForm] = useState(null)   // null | {name, calories, ...} (nuevo/edición)
+  const [note, setNote] = useState('')
   const [busy, setBusy] = useState(false)
   const [computing, setComputing] = useState(false)
   const [advice, setAdvice] = useState('')
@@ -43,16 +46,18 @@ export default function Comida({ session }) {
   const [err, setErr] = useState('')
 
   async function load() {
-    const [{ data: f }, { data: s }, { data: sl }, { data: prof }] = await Promise.all([
+    const [{ data: f }, { data: s }, { data: sl }, { data: prof }, { data: qf }] = await Promise.all([
       supabase.from('food_logs').select('*').eq('day', day).order('logged_at'),
       supabase.from('supplements').select('*').order('position'),
       supabase.from('supplement_logs').select('supplement_id, qty').eq('day', day),
-      supabase.from('profiles').select('nutrition_targets').eq('id', uid).single()
+      supabase.from('profiles').select('nutrition_targets').eq('id', uid).single(),
+      supabase.from('quick_foods').select('*').order('position')
     ])
     setFoods(f || [])
     setSups(s || [])
     const q = {}; (sl || []).forEach((x) => { q[x.supplement_id] = x.qty }); setQtyById(q)
     setTargets(prof?.nutrition_targets || null)
+    setQuickFoods(qf || [])
   }
   useEffect(() => { load(); setAdvice('') }, [day])
 
@@ -92,6 +97,37 @@ export default function Comida({ session }) {
     if (error) { setErr(error.message); return }
     setEditId(null); load()
   }
+
+  // ---- Alimentos rápidos (favoritos) ----
+  async function logQuick(qf) {
+    const { error } = await supabase.from('food_logs').insert({
+      user_id: uid, day, raw_text: qf.name,
+      calories: qf.calories ?? null, protein_g: qf.protein_g ?? null,
+      carbs_g: qf.carbs_g ?? null, fat_g: qf.fat_g ?? null, fiber_g: qf.fiber_g ?? null
+    })
+    if (error) { setErr(error.message); return }
+    setNote(`✓ ${qf.name}`)
+    setTimeout(() => setNote(''), 1500)
+    setAdvice(''); await load()
+  }
+  function startAddQuick() { setQfForm({ name: '', calories: '', protein_g: '', carbs_g: '', fat_g: '', fiber_g: '' }) }
+  function startEditQuick(qf) {
+    setQfForm({ id: qf.id, name: qf.name, calories: qf.calories ?? '', protein_g: qf.protein_g ?? '', carbs_g: qf.carbs_g ?? '', fat_g: qf.fat_g ?? '', fiber_g: qf.fiber_g ?? '' })
+  }
+  async function saveQuick() {
+    if (!qfForm.name.trim()) { setErr('Poné un nombre'); return }
+    const row = {
+      name: qfForm.name.trim(),
+      calories: parseNum(qfForm.calories), protein_g: parseNum(qfForm.protein_g),
+      carbs_g: parseNum(qfForm.carbs_g), fat_g: parseNum(qfForm.fat_g), fiber_g: parseNum(qfForm.fiber_g)
+    }
+    const { error } = qfForm.id
+      ? await supabase.from('quick_foods').update(row).eq('id', qfForm.id)
+      : await supabase.from('quick_foods').insert({ user_id: uid, ...row, position: quickFoods.length })
+    if (error) { setErr(error.message); return }
+    setQfForm(null); load()
+  }
+  async function delQuick(id) { await supabase.from('quick_foods').delete().eq('id', id); load() }
 
   async function incSup(s) {
     const cur = qtyById[s.id] || 0
@@ -167,6 +203,49 @@ export default function Comida({ session }) {
           {busy ? <span className="spinner" /> : '＋ Agregar comida'}
         </button>
         <p className="muted" style={{ marginTop: 8 }}>La IA estima calorías, proteína y fibra automáticamente.</p>
+      </div>
+
+      <div className="card">
+        <h2>⚡ Carga rápida</h2>
+        <p className="muted">Tocá un alimento fijo para sumar sus macros al día.</p>
+        <div className="quick-grid">
+          {quickFoods.map((qf) => (
+            <div className="quick-item" key={qf.id}>
+              <button className="quick-add" onClick={() => logQuick(qf)}>
+                <span className="qf-name">＋ {qf.name}</span>
+                <span className="qf-macros">
+                  {qf.protein_g != null ? `${Math.round(qf.protein_g)}g prot` : ''}
+                  {qf.calories != null ? ` · ${Math.round(qf.calories)} kcal` : ''}
+                  {qf.fiber_g ? ` · ${Math.round(qf.fiber_g)}g fibra` : ''}
+                </span>
+              </button>
+              <button className="qf-mini" onClick={() => startEditQuick(qf)} title="Editar">✏️</button>
+              <button className="qf-mini" onClick={() => delQuick(qf.id)} title="Borrar">✕</button>
+            </div>
+          ))}
+        </div>
+        {qfForm ? (
+          <div className="edit-macros" style={{ marginTop: 10 }}>
+            <label style={{ margin: '0 0 2px' }}>Nombre</label>
+            <input value={qfForm.name} placeholder="Ej: Lata de atún 100g"
+              onChange={(e) => setQfForm({ ...qfForm, name: e.target.value })} />
+            <div className="macro-grid" style={{ marginTop: 8 }}>
+              {EDIT_FIELDS.map(({ k, l }) => (
+                <div key={k}>
+                  <label style={{ margin: '0 0 2px' }}>{l}</label>
+                  <input type="text" inputMode="decimal" value={qfForm[k] ?? ''}
+                    onChange={(e) => setQfForm({ ...qfForm, [k]: e.target.value })} />
+                </div>
+              ))}
+            </div>
+            <div className="row" style={{ marginTop: 8 }}>
+              <button onClick={saveQuick}>Guardar</button>
+              <button className="ghost" onClick={() => setQfForm(null)}>Cancelar</button>
+            </div>
+          </div>
+        ) : (
+          <button className="ghost full" style={{ marginTop: 10 }} onClick={startAddQuick}>＋ Agregar alimento rápido</button>
+        )}
       </div>
 
       <div className="card">
@@ -279,6 +358,7 @@ export default function Comida({ session }) {
       </div>
 
       {err && <div className="toast" onClick={() => setErr('')}>{err}</div>}
+      {note && <div className="toast ok">{note}</div>}
     </>
   )
 }

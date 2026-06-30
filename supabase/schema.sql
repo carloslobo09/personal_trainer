@@ -158,6 +158,21 @@ create table if not exists public.measurements (
 );
 create unique index if not exists measurements_user_day on public.measurements(user_id, day);
 
+-- 11) ALIMENTOS RÁPIDOS (favoritos) — cargan sus macros al día con un click
+create table if not exists public.quick_foods (
+  id         bigint generated always as identity primary key,
+  user_id    uuid not null references auth.users(id) on delete cascade,
+  name       text not null,        -- ej "Lata de atún 100g", "Vaso leche proteína 200ml", "1 huevo"
+  calories   numeric,
+  protein_g  numeric,
+  carbs_g    numeric,
+  fat_g      numeric,
+  fiber_g    numeric,
+  position   int not null default 0,
+  created_at timestamptz not null default now()
+);
+create index if not exists quick_foods_user on public.quick_foods(user_id);
+
 -- ============================================================
 --  Seguridad por fila (RLS): cada usuario solo ve lo suyo
 -- ============================================================
@@ -171,6 +186,7 @@ alter table public.activities        enable row level security;
 alter table public.supplements       enable row level security;
 alter table public.supplement_logs   enable row level security;
 alter table public.measurements      enable row level security;
+alter table public.quick_foods       enable row level security;
 
 do $$
 declare t text;
@@ -191,7 +207,7 @@ create policy "own_update_profiles" on public.profiles for update using (auth.ui
 do $$
 declare t text;
 begin
-  foreach t in array array['food_logs','routines','routine_exercises','exercise_logs','weight_logs','activities','supplements','supplement_logs','measurements'] loop
+  foreach t in array array['food_logs','routines','routine_exercises','exercise_logs','weight_logs','activities','supplements','supplement_logs','measurements','quick_foods'] loop
     execute format('create policy "own_select_%1$s" on public.%1$s for select using (auth.uid() = user_id)', t);
     execute format('create policy "own_insert_%1$s" on public.%1$s for insert with check (auth.uid() = user_id)', t);
     execute format('create policy "own_update_%1$s" on public.%1$s for update using (auth.uid() = user_id)', t);
