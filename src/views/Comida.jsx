@@ -149,7 +149,7 @@ export default function Comida({ session }) {
       if (!result) throw new Error('No se pudieron calcular las metas')
       await supabase.from('profiles').update({
         nutrition_targets: {
-          proteina_g: result.proteina_g, fibra_g: result.fibra_g,
+          proteina_g: result.proteina_g, hidratos_g: result.hidratos_g, fibra_g: result.fibra_g,
           calorias: result.calorias, agua_ml: result.agua_ml,
           resumen: result.resumen, faltantes: result.faltantes || []
         }
@@ -253,6 +253,7 @@ export default function Comida({ session }) {
         {targets ? (
           <>
             <MetaBar label="Proteína" cur={tProt} target={targets.proteina_g} unit="g" />
+            <MetaBar label="Hidratos" cur={tCarb} target={targets.hidratos_g} unit="g" />
             <MetaBar label="Fibra" cur={tFib} target={targets.fibra_g} unit="g" />
             <MetaBar label="Calorías" cur={tCal} target={targets.calorias} unit="kcal" />
             {targets.agua_ml ? <p className="muted">💧 Agua: meta {Math.round(targets.agua_ml)} ml</p> : null}

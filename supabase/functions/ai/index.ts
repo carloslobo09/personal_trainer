@@ -503,6 +503,7 @@ Deno.serve(async (req) => {
         type: 'object',
         properties: {
           proteina_g: { type: 'number', description: 'meta diaria de proteína en gramos' },
+          hidratos_g: { type: 'number', description: 'meta diaria de hidratos de carbono en gramos (energía para entrenar; según objetivo y días de entrenamiento)' },
           fibra_g: { type: 'number', description: 'meta diaria de fibra en gramos' },
           calorias: { type: 'number', description: 'meta diaria de calorías' },
           agua_ml: { type: 'number', description: 'meta diaria de agua en ml' },
@@ -520,12 +521,14 @@ Deno.serve(async (req) => {
           },
           faltantes: { type: 'array', items: { type: 'string', description: 'suplemento/vitamina que convendría sumar y por qué, breve' } }
         },
-        required: ['proteina_g', 'fibra_g', 'calorias', 'agua_ml', 'resumen', 'suplementos', 'faltantes']
+        required: ['proteina_g', 'hidratos_g', 'fibra_g', 'calorias', 'agua_ml', 'resumen', 'suplementos', 'faltantes']
       }
       const out = await callAI({
         max_tokens: 1000, schema,
-        system: 'Sos entrenador y nutricionista. Calculás metas diarias PERSONALIZADAS (proteína, fibra, ' +
-          'calorías, agua) según peso, complexión y objetivo del usuario. Para cada suplemento que tiene, ' +
+        system: 'Sos entrenador y nutricionista. Calculás metas diarias PERSONALIZADAS (proteína, hidratos ' +
+          'de carbono, fibra, calorías, agua) según peso, complexión y objetivo del usuario. Los hidratos ' +
+          'son la energía para entrenar: más en días de entrenamiento y para ganar músculo, algo menos si ' +
+          'busca perder grasa. Para cada suplemento que tiene, ' +
           'decís cuántas pastillas por día según la dosis por pastilla, y para qué sirve. Sugerís ' +
           'suplementos/vitaminas que le falten para el objetivo (ej: vitamina D). Español rioplatense.',
         user: `Perfil:\n${perfil}\n\nSuplementos del usuario (con dosis por pastilla): ${supText}\n\n` +
