@@ -8,7 +8,7 @@ on:
 
 permissions:
   contents: read
-  actions: write   # keepalive-workflow: evita que GitHub desactive este cron tras 60 días sin actividad
+  actions: write   # re-habilitar el workflow: evita que GitHub desactive este cron tras 60 días sin actividad
 
 jobs:
   backup:
@@ -41,4 +41,7 @@ jobs:
           path: backup.json.enc
           retention-days: 90
 
-      - uses: gautamkrishnar/keepalive-workflow@v2
+      - name: Mantener habilitado este cron (GitHub lo apaga tras 60 días sin actividad)
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: gh api -X PUT "repos/${{ github.repository }}/actions/workflows/backup-keepalive.yml/enable"
