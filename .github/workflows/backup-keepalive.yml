@@ -1,0 +1,44 @@
+# Cada 3 días: backup encriptado de los datos + uso de la base para que Supabase (plan free) no pause el proyecto.
+name: Backup y keepalive
+
+on:
+  schedule:
+    - cron: '0 12 */3 * *'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+  actions: write   # keepalive-workflow: evita que GitHub desactive este cron tras 60 días sin actividad
+
+jobs:
+  backup:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 20
+
+      - name: Exportar datos (también mantiene activo Supabase)
+        env:
+          SUPABASE_URL: ${{ secrets.VITE_SUPABASE_URL }}
+          SUPABASE_ANON_KEY: ${{ secrets.VITE_SUPABASE_ANON_KEY }}
+          BACKUP_EMAIL: ${{ secrets.BACKUP_EMAIL }}
+          BACKUP_PASSWORD: ${{ secrets.BACKUP_PASSWORD }}
+        run: node scripts/backup.mjs backup.json
+
+      - name: Encriptar (el repo es público)
+        env:
+          BACKUP_PASSPHRASE: ${{ secrets.BACKUP_PASSPHRASE }}
+        run: |
+          openssl enc -aes-256-cbc -pbkdf2 -salt -in backup.json -out backup.json.enc -pass env:BACKUP_PASSPHRASE
+          rm backup.json
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: backup-${{ github.run_number }}
+          path: backup.json.enc
+          retention-days: 90
+
+      - uses: gautamkrishnar/keepalive-workflow@v2
