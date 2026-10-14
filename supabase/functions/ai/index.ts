@@ -8,8 +8,9 @@
 import { createClient } from 'https://esm.sh/@supabase/supabase-js@2'
 
 const GROQ_API_KEY = Deno.env.get('GROQ_API_KEY')!
-// Modelo gratuito de Groq. Alternativas: 'llama-3.1-8b-instant' (más rápido).
-const MODEL = 'llama-3.3-70b-versatile'
+// Modelo gratuito de Groq. Alternativa más rápida: 'openai/gpt-oss-20b'.
+// Groq: llama-3.3-70b se apagó el 16/08/2026; reemplazo recomendado: gpt-oss-120b (razonador)
+const MODEL = 'openai/gpt-oss-120b'
 const GROQ_URL = 'https://api.groq.com/openai/v1/chat/completions'
 
 // Regla común: respuestas cortas y al grano.
@@ -50,7 +51,11 @@ async function callAI(opts: { system: string; user: string; max_tokens?: number;
     { role: 'system', content: opts.system },
     { role: 'user', content: opts.schema ? `${opts.user}\n\n${schemaHint(opts.schema)}` : opts.user }
   ]
-  const body: any = { model: MODEL, max_tokens: opts.max_tokens ?? 1024, temperature: opts.temperature ?? 0.7, messages }
+  // gpt-oss gasta tokens en razonar: esfuerzo bajo + margen extra para que la respuesta no se corte
+  const body: any = {
+    model: MODEL, max_tokens: (opts.max_tokens ?? 1024) + 1500, temperature: opts.temperature ?? 0.7,
+    reasoning_effort: 'low', include_reasoning: false, messages
+  }
   if (opts.schema) body.response_format = { type: 'json_object' }
 
   const res = await fetch(GROQ_URL, {
